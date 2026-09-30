@@ -20,7 +20,7 @@
 &ensp;&ensp;a optional minDistance Number \
 &ensp;&ensp;a optional maxDistance Number \
 &ensp;&ensp;a optional minPace Number \
-&ensp;&ensp;a optional maxPace Number \
+&ensp;&ensp;a optional maxPace Number
 
 &ensp;**Rule:** distance > 0 \
 &ensp;**Rule:** pace > 0 \
@@ -29,7 +29,7 @@
 &ensp;**Rule:** minDistance and maxDistance are either both present or both absent \
 &ensp;**Rule:** if minDistance and maxDistance are present, 0 < minDistance <= distance <= maxDistance \
 &ensp;**Rule:** minPace and maxPace are either both present or both absent \
-&ensp;**Rule:** if minPace and maxPace are present, 0 < minPace <= pace <= maxPace \
+&ensp;**Rule:** if minPace and maxPace are present, 0 < minPace <= pace <= maxPace
 
 **actions**
 
@@ -97,9 +97,9 @@ SuggestionStatus is PENDING or ACCEPTED or REJECTED or WITHDRAWN
 &ensp;**where** suggester != decider \
 &ensp;**then** create a suggestion with the given suggester, decider, event, and change, and status PENDING
 
-**accept**(decider: User, suggestion: Suggestion) \
+**accept**(decider: User, suggestion: Suggestion): (event: Event, change: Change, suggester: User) \
 &ensp;**where** suggestion exists and suggestion.decider = decider and suggestion.status = PENDING \
-&ensp;**then** set suggestion.status to ACCEPTED
+&ensp;**then** set suggestion.status to ACCEPTED and return suggestion.event, suggestion.change, and suggestion.suggester
 
 **reject**(decider: User, suggestion: Suggestion) \
 &ensp;**where** suggestion exists and suggestion.decider = decider and suggestion.status = PENDING \
@@ -148,3 +148,29 @@ SuggestionStatus is PENDING or ACCEPTED or REJECTED or WITHDRAWN
 **remove**(user: User, friendship: Friendship) \
 &ensp;**where** friendship exists and user is one of the users in the friendship \
 &ensp;**then** remove the friendship
+
+## Essential reactions
+
+**reaction** suggestChange \
+&ensp;**when** Requesting.suggestChange(suggester, owner,run, change) \
+&ensp;**then** ChangeSuggesting.suggest(suggester, decider: run.owner, event: run, change)
+
+**reaction** applyAcceptedChange \
+&ensp;**when** ChangeSuggesting.accept(decider, suggestion): (event, change, suggester) \
+&ensp;**then** RunPlanning.update(owner: decider, run: event, startTime: change.startTime, distance: change.distance, pace: change.pace, location: change.location)
+
+**reaction** joinAfterAcceptedChange \
+&ensp;**when** ChangeSuggesting.accept(decider, suggestion): (event, change, suggester) \
+&ensp;**then** Joining.join(user: suggester, event)
+
+## Note
+
+`RunPlanning` represents the runs that users are planning to do. It stores the runner's current plan along with how flexible they are willing to be about the time, distance, and pace. This keeps the details of the run itself separate from the social interactions that happen around it.
+
+`Joining` keeps track of who is participating in a run. In `RunTogether`, its generic `Event` parameter is instantiated with `RunPlanning.Run`. Keeping this separate from `RunPlanning` means that a run can exist on its own, while friends can independently join or leave it.
+
+`ChangeSuggesting` handles cases where a friend's run almost works for someone, but they would need one of the details to change before joining. Its `Event` parameter is instantiated with `RunPlanning.Run`, and `Change` represents a proposed change with optional startTime, distance, pace, and location values. The run's owner is used as the suggestion's decider. Making a suggestion means that the user wants to join the run if their proposed change is accepted. If the owner accepts it, reactions update the run and add the suggester as a participant. This allows friends to adjust a shared plan without giving them direct control over someone else's run.
+
+`Friending` keeps track of mutual relationships between users. `RunTogether` uses friendships to determine whose upcoming runs a user can discover. Keeping this separate from `RunPlanning` means that the run itself does not need to keep track of who is allowed to see or interact with it.
+
+Together, these concepts separate the runner's plan, participation in the run, negotiation over possible changes, and relationships between users. They work together to let an individual run naturally become a shared run when friends want to join, without requiring someone to organize a separate group event.
