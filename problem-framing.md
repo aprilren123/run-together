@@ -58,4 +58,11 @@ A potential solution is a social running app where people can share casual runs 
 
 A run could either have fixed details or still be flexible. For a fixed run, someone might post that they are running five miles at 10 AM and friends can decide whether to join. For a flexible run, the person posting might say that they want to run four to six miles sometime between 9 and 11 AM. Friends who are interested could add the times and distances that work for them, and the app could show where everyone's preferences overlap. The group could then use that overlap to settle on a final plan without having to compare everyone's availability through separate messages.
 
+# Stakeholders
+
+- **Runners sharing their plans:** Runners who are already planning to go for a run and would be open to having friends join them, but may not want to individually reach out every time they run.
+- **Runners looking to join friends:** Runners who would like to run socially and may be interested in joining a friend's run when their schedules, distances, or other preferences line up.
+
+The same person can take on either role depending on the run.
+
 
