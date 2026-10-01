@@ -152,8 +152,8 @@ SuggestionStatus is PENDING or ACCEPTED or REJECTED or WITHDRAWN
 ## Essential reactions
 
 **reaction** suggestChange \
-&ensp;**when** Requesting.suggestChange(suggester, owner,run, change) \
-&ensp;**then** ChangeSuggesting.suggest(suggester, decider: run.owner, event: run, change)
+&ensp;**when** Requesting.suggestChange(suggester, owner, run, change) \
+&ensp;**then** ChangeSuggesting.suggest(suggester, decider: owner, event: run, change)
 
 **reaction** applyAcceptedChange \
 &ensp;**when** ChangeSuggesting.accept(decider, suggestion): (event, change, suggester) \
@@ -169,7 +169,8 @@ SuggestionStatus is PENDING or ACCEPTED or REJECTED or WITHDRAWN
 
 `Joining` keeps track of who is participating in a run. In `RunTogether`, its generic `Event` parameter is instantiated with `RunPlanning.Run`. Keeping this separate from `RunPlanning` means that a run can exist on its own, while friends can independently join or leave it.
 
-`ChangeSuggesting` handles cases where a friend's run almost works for someone, but they would need one of the details to change before joining. Its `Event` parameter is instantiated with `RunPlanning.Run`, and `Change` represents a proposed change with optional startTime, distance, pace, and location values. The run's owner is used as the suggestion's decider. Making a suggestion means that the user wants to join the run if their proposed change is accepted. If the owner accepts it, reactions update the run and add the suggester as a participant. This allows friends to adjust a shared plan without giving them direct control over someone else's run.
+`ChangeSuggesting` handles cases where a friend's run almost works for someone, but they would need one of the details to change before joining. Its `Event` parameter is instantiated with `RunPlanning.Run`, and `Change` is instantiated as a proposed run change containing optional startTime, distance, pace, and location fields, which map directly to the optional parameters of `RunPlanning.update`. The run's owner is used as the suggestion's decider. Making a suggestion means that the user wants to join the run if their proposed change is accepted. If the owner accepts it, reactions update the run and add the suggester as a participant. This allows friends to adjust a shared plan without giving them direct control over someone else's run.
+
 
 `Friending` keeps track of mutual relationships between users. `RunTogether` uses friendships to determine whose upcoming runs a user can discover. Keeping this separate from `RunPlanning` means that the run itself does not need to keep track of who is allowed to see or interact with it.
 
