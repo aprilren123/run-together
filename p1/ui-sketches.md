@@ -1,6 +1,6 @@
 # UI Sketches
 
-Drawn with Figma
+Created with Figma
 
 # Home feed
 
