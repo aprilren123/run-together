@@ -130,13 +130,7 @@ export type RunTogetherWire = {
       "runs": {
         "runs": {
           "distance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["distance"]>>;
-          "earliestTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["earliestTime"]>>;
-          "latestTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["latestTime"]>>;
           "location": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["location"]>>;
-          "maxDistance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["maxDistance"]>>;
-          "maxPace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["maxPace"]>>;
-          "minDistance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["minDistance"]>>;
-          "minPace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["minPace"]>>;
           "owner": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["owner"]>>;
           "pace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["pace"]>>;
           "run": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>>;
@@ -170,7 +164,7 @@ export type RunTogetherWire = {
       "event": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>>, ["event"]>>;
       "suggester": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>>, ["suggester"]>>;
     };
-    error: { error: AppWideError | "CANNOT_ACCEPT" | "INVALID_INPUT" };
+    error: { error: AppWideError | "ALREADY_JOINED" | "CANNOT_ACCEPT" | "INVALID_INPUT" | "INVALID_RUN" | "NOT_OWNER" };
   };
   "/suggestions/create": {
     input: {

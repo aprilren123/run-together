@@ -24,8 +24,8 @@ function validRunDetails(distance: number, pace: number) {
 }
 
 function validFlexibility(run: Run) {
-  const hasEarliest = run.earliestTime !== undefined;
-  const hasLatest = run.latestTime !== undefined;
+  const hasEarliest = run.earliestTime != null;
+const hasLatest = run.latestTime != null;
 
   if (hasEarliest !== hasLatest) {
     return false;
@@ -42,8 +42,8 @@ function validFlexibility(run: Run) {
     return false;
   }
 
-  const hasMinDistance = run.minDistance !== undefined;
-  const hasMaxDistance = run.maxDistance !== undefined;
+  const hasMinDistance = run.minDistance != null;
+const hasMaxDistance = run.maxDistance != null;
 
   if (hasMinDistance !== hasMaxDistance) {
     return false;
@@ -61,8 +61,8 @@ function validFlexibility(run: Run) {
     return false;
   }
 
-  const hasMinPace = run.minPace !== undefined;
-  const hasMaxPace = run.maxPace !== undefined;
+  const hasMinPace = run.minPace != null;
+  const hasMaxPace = run.maxPace != null;
 
   if (hasMinPace !== hasMaxPace) {
     return false;
@@ -188,44 +188,48 @@ export class RunPlanningConcept {
   }: {
     owner: string;
     run: string;
-    earliestTime?: string;
-    latestTime?: string;
-    minDistance?: number;
-    maxDistance?: number;
-    minPace?: number;
-    maxPace?: number;
+    earliestTime?: string | null;
+    latestTime?: string | null;
+    minDistance?: number | null;
+    maxDistance?: number | null;
+    minPace?: number | null;
+    maxPace?: number | null;
   }) {
     const existing = await this.runs.findOne({ _id: run });
-
+  
     if (!existing || existing.owner !== owner) {
       throw new NotOwner(
         "The run does not exist or does not belong to this user.",
       );
     }
-
+  
+    const flexibility = {
+      earliestTime: earliestTime ?? undefined,
+      latestTime: latestTime ?? undefined,
+      minDistance: minDistance ?? undefined,
+      maxDistance: maxDistance ?? undefined,
+      minPace: minPace ?? undefined,
+      maxPace: maxPace ?? undefined,
+    };
+  
     const updated: Run = {
       ...existing,
-      earliestTime,
-      latestTime,
-      minDistance,
-      maxDistance,
-      minPace,
-      maxPace,
+      ...flexibility,
     };
-
+  
     if (!validFlexibility(updated)) {
       throw new InvalidFlexibility(
         "The flexibility ranges are invalid.",
       );
     }
-
+  
     await this.runs.updateOne(
       { _id: run },
       {
-        $set: updated,
+        $set: flexibility,
       },
     );
-
+  
     return { run };
   }
 

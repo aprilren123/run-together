@@ -27,7 +27,7 @@ RunTogether.RemoveFriend at /friends/remove
 RunTogether.ListFriends at /friends/list
 ```
 
-A user can [suggest a change](reaction:RunTogether.SuggestChange) to a friend's run. The run owner can [accept the suggestion](reaction:RunTogether.AcceptSuggestion) or [reject it](reaction:RunTogether.RejectSuggestion), and the suggester can [withdraw it](reaction:RunTogether.WithdrawSuggestion). Users can [view suggestions](reaction:RunTogether.ListSuggestions) using the [suggestion list](former:RunTogether.SuggestionList).
+A user can [suggest a change](reaction:RunTogether.SuggestChange) to a friend's run. The run owner can [accept the suggestion](reaction:RunTogether.AcceptSuggestion) or [reject it](reaction:RunTogether.RejectSuggestion), and the suggester can [withdraw it](reaction:RunTogether.WithdrawSuggestion). When a suggestion is accepted, the [run is updated](reaction:RunTogether.AcceptedSuggestionUpdatesRun) and the [suggester joins the run](reaction:RunTogether.AcceptedSuggestionJoinsSuggester). Users can [view suggestions](reaction:RunTogether.ListSuggestions) using the [suggestion list](former:RunTogether.SuggestionList).
 
 ```endpoints
 RunTogether.SuggestChange at /suggestions/create

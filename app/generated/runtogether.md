@@ -139,18 +139,12 @@ Authored path: `RunTogether.RunList`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 
 ```former
-Former "the run list" — inputs (); bindings (run, owner, startTime, distance, pace, location, earliestTime, latestTime, minDistance, maxDistance, minPace, maxPace); promises exactly one record — forms:
+Former "the run list" — inputs (); bindings (run, owner, startTime, distance, pace, location); promises exactly one record — forms:
   a record of
-    runs: each RunPlanning._all () has (distance, earliestTime, latestTime, location, maxDistance, maxPace, minDistance, minPace, owner, pace, run, startTime)
+    runs: each RunPlanning._all () has (distance, location, owner, pace, run, startTime)
       form a record of
         distance
-        earliestTime
-        latestTime
         location
-        maxDistance
-        maxPace
-        minDistance
-        minPace
         owner
         pace
         run
@@ -247,6 +241,28 @@ where
   earlier, RequestBoundary.request (decider, path: "/suggestions/accept", requestId, suggestion)
 then
   RequestBoundary.respond (change, event, requestId, suggester)
+```
+
+### RunTogether.AcceptedSuggestionJoinsSuggester
+
+Authored path: `RunTogether.AcceptedSuggestionJoinsSuggester`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
+
+```reaction
+when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
+then
+  Joining.join (event, user: suggester)
+```
+
+### RunTogether.AcceptedSuggestionUpdatesRun
+
+Authored path: `RunTogether.AcceptedSuggestionUpdatesRun`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
+
+```reaction
+when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
+then
+  RunPlanning.update (owner: decider, run: event, startTime: change)
 ```
 
 ### RunTogether.CancelRun

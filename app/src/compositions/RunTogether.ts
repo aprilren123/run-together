@@ -1,6 +1,12 @@
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
-import { each, form, former } from "@mit-sdg/sync-engine/language";
 import { concepts } from "../concepts.ts";
+import {
+    each,
+    form,
+    former,
+    reaction,
+    when,
+  } from "@mit-sdg/sync-engine/language";
 
 const {
   RunPlanning,
@@ -12,56 +18,28 @@ const {
 // ---------- Runs ----------
 
 const RunList = former(
-  "the run list",
-  (
-    _input,
-    {
-      run,
-      owner,
-      startTime,
-      distance,
-      pace,
-      location,
-      earliestTime,
-      latestTime,
-      minDistance,
-      maxDistance,
-      minPace,
-      maxPace,
-    },
-  ) =>
-    form({
-      runs: each(
-        RunPlanning._all({}).is({
+    "the run list",
+    (_input, { run, owner, startTime, distance, pace, location }) =>
+      form({
+        runs: each(
+          RunPlanning._all({}).is({
+            run,
+            owner,
+            startTime,
+            distance,
+            pace,
+            location,
+          }),
+        ).form({
           run,
           owner,
           startTime,
           distance,
           pace,
           location,
-          earliestTime,
-          latestTime,
-          minDistance,
-          maxDistance,
-          minPace,
-          maxPace,
         }),
-      ).form({
-        run,
-        owner,
-        startTime,
-        distance,
-        pace,
-        location,
-        earliestTime,
-        latestTime,
-        minDistance,
-        maxDistance,
-        minPace,
-        maxPace,
       }),
-    }),
-);
+  );
 
 const CreateRun = endpoint(
     "/runs/create",
@@ -422,6 +400,39 @@ const AcceptSuggestion = endpoint(
   },
 );
 
+const AcceptedSuggestionUpdatesRun = reaction(
+    ({ decider, event, change, suggester, suggestion }) =>
+      when(
+        ChangeSuggesting.accept({ decider, suggestion }).responds({
+          event,
+          change,
+          suggester,
+        }),
+      ).then(
+        RunPlanning.update({
+          owner: decider,
+          run: event,
+          startTime: change,
+        }),
+      ),
+  );
+
+  const AcceptedSuggestionJoinsSuggester = reaction(
+    ({ decider, event, change, suggester, suggestion }) =>
+      when(
+        ChangeSuggesting.accept({ decider, suggestion }).responds({
+          event,
+          change,
+          suggester,
+        }),
+      ).then(
+        Joining.join({
+          user: suggester,
+          event,
+        }),
+      ),
+  );
+
 const RejectSuggestion = endpoint(
   "/suggestions/reject",
   ({ decider, suggestion }) =>
@@ -467,24 +478,31 @@ const ListSuggestions = endpoint("/suggestions/list", () =>
 );
 
 export const composition = {
-  RunList,
-  FriendList,
-  SuggestionList,
-  CreateRun,
-  UpdateRun,
-  SetFlexibility,
-  CancelRun,
-  ListRuns,
-  JoinRun,
-  LeaveRun,
-  SendFriendRequest,
-  AcceptFriendRequest,
-  RejectFriendRequest,
-  RemoveFriend,
-  ListFriends,
-  SuggestChange,
-  AcceptSuggestion,
-  RejectSuggestion,
-  WithdrawSuggestion,
-  ListSuggestions,
-};
+    RunList,
+    FriendList,
+    SuggestionList,
+  
+    CreateRun,
+    UpdateRun,
+    SetFlexibility,
+    CancelRun,
+    ListRuns,
+  
+    JoinRun,
+    LeaveRun,
+  
+    SendFriendRequest,
+    AcceptFriendRequest,
+    RejectFriendRequest,
+    RemoveFriend,
+    ListFriends,
+  
+    SuggestChange,
+    AcceptSuggestion,
+    RejectSuggestion,
+    WithdrawSuggestion,
+    ListSuggestions,
+  
+    AcceptedSuggestionUpdatesRun,
+    AcceptedSuggestionJoinsSuggester,
+  };
