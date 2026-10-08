@@ -19,29 +19,30 @@ const {
 
 const RunList = former(
     "the run list",
-    (_input, { run, owner, startTime, distance, pace, location }) =>
+    (
+      _input,
+      {
+        run, owner, startTime, distance, pace, location,
+        details, earliestTime, latestTime,
+        minDistance, maxDistance, minPace, maxPace,
+      },
+    ) =>
       form({
         runs: each(
           RunPlanning._all({}).is({
-            run,
-            owner,
-            startTime,
-            distance,
-            pace,
-            location,
+            run, owner, startTime, distance, pace, location,
+            details, earliestTime, latestTime,
+            minDistance, maxDistance, minPace, maxPace,
           }),
         ).form({
-          run,
-          owner,
-          startTime,
-          distance,
-          pace,
-          location,
+          run, owner, startTime, distance, pace, location,
+          details, earliestTime, latestTime,
+          minDistance, maxDistance, minPace, maxPace,
         }),
       }),
   );
 
-const CreateRun = endpoint(
+  const CreateRun = endpoint(
     "/runs/create",
     ({
       owner,
@@ -49,6 +50,7 @@ const CreateRun = endpoint(
       distance,
       pace,
       location,
+      details,
       run,
     }) =>
       receive({
@@ -57,6 +59,7 @@ const CreateRun = endpoint(
         distance,
         pace,
         location,
+        details,
       })
         .then(
           RunPlanning.create({
@@ -65,20 +68,10 @@ const CreateRun = endpoint(
             distance,
             pace,
             location,
+            details,
           }).responds({ run }),
         )
         .then(respond({ run })),
-    {
-      input: {
-        required: [
-          "owner",
-          "startTime",
-          "distance",
-          "pace",
-          "location",
-        ],
-      },
-    },
   );
 
   const UpdateRun = endpoint(
@@ -187,6 +180,30 @@ const CancelRun = endpoint(
 const ListRuns = endpoint("/runs/list", () =>
   receive({}).then(respond({ runs: RunList({}) })),
 );
+
+const ParticipantList = former(
+    "the participant list",
+    (_input, { participation, user, event }) =>
+      form({
+        participations: each(
+          Joining._all({}).is({
+            participation,
+            user,
+            event,
+          }),
+        ).form({
+          participation,
+          user,
+          event,
+        }),
+      }),
+  );
+  
+  const ListParticipants = endpoint("/runs/participants", () =>
+    receive({}).then(
+      respond({ participants: ParticipantList({}) }),
+    ),
+  );
 
 // ---------- Joining ----------
 
@@ -511,6 +528,8 @@ export const composition = {
     SetFlexibility,
     CancelRun,
     ListRuns,
+    ParticipantList,
+    ListParticipants,
   
     JoinRun,
     LeaveRun,

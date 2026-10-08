@@ -65,6 +65,19 @@ export type RunTogetherWire = {
     };
     error: { error: AppWideError | "CANNOT_REQUEST" | "INVALID_INPUT" };
   };
+  "/friends/requests": {
+    input: Record<string, never>;
+    output: {
+      "requests": {
+        "requests": {
+          "recipient": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Friending"]["_requests"]>>>, ["recipient"]>>;
+          "request": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Friending"]["_requests"]>>>, ["request"]>>;
+          "sender": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Friending"]["_requests"]>>>, ["sender"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError };
+  };
   "/runs/cancel": {
     input: {
       "owner": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["cancel"]>[0], ["owner"]>>;
@@ -77,6 +90,7 @@ export type RunTogetherWire = {
   };
   "/runs/create": {
     input: {
+      "details": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["create"]>[0], ["details"]>>;
       "distance": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["create"]>[0], ["distance"]>>;
       "location": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["create"]>[0], ["location"]>>;
       "owner": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["create"]>[0], ["owner"]>>;
@@ -129,12 +143,32 @@ export type RunTogetherWire = {
     output: {
       "runs": {
         "runs": {
+          "details": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["details"]>>;
           "distance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["distance"]>>;
+          "earliestTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["earliestTime"]>>;
+          "latestTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["latestTime"]>>;
           "location": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["location"]>>;
+          "maxDistance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["maxDistance"]>>;
+          "maxPace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["maxPace"]>>;
+          "minDistance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["minDistance"]>>;
+          "minPace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["minPace"]>>;
           "owner": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["owner"]>>;
           "pace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["pace"]>>;
           "run": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>>;
           "startTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["startTime"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError };
+  };
+  "/runs/participants": {
+    input: Record<string, never>;
+    output: {
+      "participants": {
+        "participations": {
+          "event": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>>;
+          "participation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["participation"]>>;
+          "user": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["user"]>>;
         }[];
       };
     };

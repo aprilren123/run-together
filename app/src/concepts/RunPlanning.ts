@@ -17,6 +17,7 @@ interface Run {
   maxDistance?: number;
   minPace?: number;
   maxPace?: number;
+  details?: string;
 }
 
 function validRunDetails(distance: number, pace: number) {
@@ -96,12 +97,14 @@ export class RunPlanningConcept {
     distance,
     pace,
     location,
+    details,
   }: {
     owner: string;
     startTime: string;
     distance: number;
     pace: number;
     location: string;
+    details: string;
   }) {
     if (!validRunDetails(distance, pace)) {
       throw new InvalidRun(
@@ -116,6 +119,7 @@ export class RunPlanningConcept {
       distance,
       pace,
       location,
+      details,
     };
   
     await this.runs.insertOne(run);
@@ -255,10 +259,11 @@ export class RunPlanningConcept {
 
   async _all(_input: Record<string, never>) {
     const rows = await this.runs.find().toArray();
-
+  
     return rows.map(({ _id, ...rest }) => ({
       run: _id,
       ...rest,
+      details: rest.details ?? "",
     }));
   }
 }

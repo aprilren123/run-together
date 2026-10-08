@@ -86,7 +86,7 @@ Defined in [RunPlanning](../design/concepts/RunPlanning.md), line 1.
 
 #### Actions
 
-- `create(owner: User, startTime: String, distance: Number, pace: Number, location: String) : returns (run: Run)`
+- `create(owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String) : returns (run: Run)`
   - Refuses `INVALID_RUN`: The run details or flexibility ranges are invalid.
 - `update(owner: User, run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String) : returns (run: Run)`
   - Refuses `NOT_OWNER`: The run does not exist or does not belong to this user.
@@ -99,7 +99,7 @@ Defined in [RunPlanning](../design/concepts/RunPlanning.md), line 1.
 
 #### Queries
 
-- `_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number)`
+- `_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number)`
 
 #### Instances
 
@@ -121,7 +121,7 @@ _the authored explanation; this section records the generated shape._
 ### the friend list
 
 Authored path: `RunTogether.FriendList`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 
 ```former
 Former "the friend list" — inputs (); bindings (friendship, user1, user2); promises exactly one record — forms:
@@ -133,18 +133,55 @@ Former "the friend list" — inputs (); bindings (friendship, user1, user2); pro
         user2
 ```
 
+### the friend request list
+
+Authored path: `RunTogether.FriendRequestList`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+
+```former
+Former "the friend request list" — inputs (); bindings (request, sender, recipient); promises exactly one record — forms:
+  a record of
+    requests: each Friending._requests () has (recipient, request, sender)
+      form a record of
+        recipient
+        request
+        sender
+```
+
+### the participant list
+
+Authored path: `RunTogether.ParticipantList`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
+
+```former
+Former "the participant list" — inputs (); bindings (participation, user, event); promises exactly one record — forms:
+  a record of
+    participations: each Joining._all () has (event, participation, user)
+      form a record of
+        event
+        participation
+        user
+```
+
 ### the run list
 
 Authored path: `RunTogether.RunList`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 
 ```former
-Former "the run list" — inputs (); bindings (run, owner, startTime, distance, pace, location); promises exactly one record — forms:
+Former "the run list" — inputs (); bindings (run, owner, startTime, distance, pace, location, details, earliestTime, latestTime, minDistance, maxDistance, minPace, maxPace); promises exactly one record — forms:
   a record of
-    runs: each RunPlanning._all () has (distance, location, owner, pace, run, startTime)
+    runs: each RunPlanning._all () has (details, distance, earliestTime, latestTime, location, maxDistance, maxPace, minDistance, minPace, owner, pace, run, startTime)
       form a record of
+        details
         distance
+        earliestTime
+        latestTime
         location
+        maxDistance
+        maxPace
+        minDistance
+        minPace
         owner
         pace
         run
@@ -154,7 +191,7 @@ Former "the run list" — inputs (); bindings (run, owner, startTime, distance, 
 ### the suggestion list
 
 Authored path: `RunTogether.SuggestionList`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```former
 Former "the suggestion list" — inputs (); bindings (suggestion, suggester, decider, event, change, status); promises exactly one record — forms:
@@ -194,8 +231,8 @@ then
 ### RunTogether.AcceptFriendRequest
 
 Authored path: `RunTogether.AcceptFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
 
 ```reaction
 when RequestBoundary.request (path: "/friends/accept", recipient, request, requestId)
@@ -206,8 +243,8 @@ then
 ### RunTogether.AcceptFriendRequest#2
 
 Authored path: `RunTogether.AcceptFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
 
 ```reaction
 when Friending.accept (recipient, request, friendship), asked by RunTogether.AcceptFriendRequest
@@ -220,8 +257,8 @@ then
 ### RunTogether.AcceptSuggestion
 
 Authored path: `RunTogether.AcceptSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 34.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
 
 ```reaction
 when RequestBoundary.request (decider, path: "/suggestions/accept", requestId, suggestion)
@@ -232,8 +269,8 @@ then
 ### RunTogether.AcceptSuggestion#2
 
 Authored path: `RunTogether.AcceptSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 34.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
 
 ```reaction
 when ChangeSuggesting.accept (decider, suggestion, change, event, suggester), asked by RunTogether.AcceptSuggestion
@@ -246,7 +283,7 @@ then
 ### RunTogether.AcceptedSuggestionJoinsSuggester
 
 Authored path: `RunTogether.AcceptedSuggestionJoinsSuggester`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```reaction
 when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
@@ -257,7 +294,7 @@ then
 ### RunTogether.AcceptedSuggestionUpdatesRun
 
 Authored path: `RunTogether.AcceptedSuggestionUpdatesRun`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```reaction
 when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
@@ -298,9 +335,9 @@ Authored path: `RunTogether.CreateRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 6.
 
 ```reaction
-when RequestBoundary.request (distance, location, owner, pace, path: "/runs/create", requestId, startTime)
+when RequestBoundary.request (details, distance, location, owner, pace, path: "/runs/create", requestId, startTime)
 then
-  RunPlanning.create (distance, location, owner, pace, startTime)
+  RunPlanning.create (details, distance, location, owner, pace, startTime)
 ```
 
 ### RunTogether.CreateRun#2
@@ -310,9 +347,9 @@ Authored path: `RunTogether.CreateRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 6.
 
 ```reaction
-when RunPlanning.create (distance, location, owner, pace, startTime, run), asked by RunTogether.CreateRun
+when RunPlanning.create (details, distance, location, owner, pace, startTime, run), asked by RunTogether.CreateRun
 where
-  earlier, RequestBoundary.request (distance, location, owner, pace, path: "/runs/create", requestId, startTime)
+  earlier, RequestBoundary.request (details, distance, location, owner, pace, path: "/runs/create", requestId, startTime)
 then
   RequestBoundary.respond (requestId, run)
 ```
@@ -321,7 +358,7 @@ then
 
 Authored path: `RunTogether.JoinRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
 
 ```reaction
 when RequestBoundary.request (event, path: "/runs/join", requestId, user)
@@ -333,7 +370,7 @@ then
 
 Authored path: `RunTogether.JoinRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
 
 ```reaction
 when Joining.join (event, user, participation), asked by RunTogether.JoinRun
@@ -347,7 +384,7 @@ then
 
 Authored path: `RunTogether.LeaveRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 18.
 
 ```reaction
 when RequestBoundary.request (event, path: "/runs/leave", requestId, user)
@@ -359,7 +396,7 @@ then
 
 Authored path: `RunTogether.LeaveRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 18.
 
 ```reaction
 when Joining.leave (event, user, participation), asked by RunTogether.LeaveRun
@@ -369,16 +406,40 @@ then
   RequestBoundary.respond (participation, requestId)
 ```
 
+### RunTogether.ListFriendRequests
+
+Authored path: `RunTogether.ListFriendRequests`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 29.
+
+```reaction
+when RequestBoundary.request (path: "/friends/requests", requestId)
+then
+  RequestBoundary.respond (requestId, requests: former "the friend request list")
+```
+
 ### RunTogether.ListFriends
 
 Authored path: `RunTogether.ListFriends`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 27.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 28.
 
 ```reaction
 when RequestBoundary.request (path: "/friends/list", requestId)
 then
   RequestBoundary.respond (friends: former "the friend list", requestId)
+```
+
+### RunTogether.ListParticipants
+
+Authored path: `RunTogether.ListParticipants`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
+
+```reaction
+when RequestBoundary.request (path: "/runs/participants", requestId)
+then
+  RequestBoundary.respond (participants: former "the participant list", requestId)
 ```
 
 ### RunTogether.ListRuns
@@ -396,8 +457,8 @@ then
 ### RunTogether.ListSuggestions
 
 Authored path: `RunTogether.ListSuggestions`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 37.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
 
 ```reaction
 when RequestBoundary.request (path: "/suggestions/list", requestId)
@@ -408,8 +469,8 @@ then
 ### RunTogether.RejectFriendRequest
 
 Authored path: `RunTogether.RejectFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
 
 ```reaction
 when RequestBoundary.request (path: "/friends/reject", recipient, request, requestId)
@@ -420,8 +481,8 @@ then
 ### RunTogether.RejectFriendRequest#2
 
 Authored path: `RunTogether.RejectFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
 
 ```reaction
 when Friending.reject (recipient, request), asked by RunTogether.RejectFriendRequest
@@ -434,8 +495,8 @@ then
 ### RunTogether.RejectSuggestion
 
 Authored path: `RunTogether.RejectSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 37.
 
 ```reaction
 when RequestBoundary.request (decider, path: "/suggestions/reject", requestId, suggestion)
@@ -446,8 +507,8 @@ then
 ### RunTogether.RejectSuggestion#2
 
 Authored path: `RunTogether.RejectSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 37.
 
 ```reaction
 when ChangeSuggesting.reject (decider, suggestion), asked by RunTogether.RejectSuggestion
@@ -460,8 +521,8 @@ then
 ### RunTogether.RemoveFriend
 
 Authored path: `RunTogether.RemoveFriend`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 27.
 
 ```reaction
 when RequestBoundary.request (friendship, path: "/friends/remove", requestId, user)
@@ -472,8 +533,8 @@ then
 ### RunTogether.RemoveFriend#2
 
 Authored path: `RunTogether.RemoveFriend`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 27.
 
 ```reaction
 when Friending.remove (friendship, user), asked by RunTogether.RemoveFriend
@@ -486,8 +547,8 @@ then
 ### RunTogether.SendFriendRequest
 
 Authored path: `RunTogether.SendFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 23.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
 
 ```reaction
 when RequestBoundary.request (path: "/friends/request", recipient, requestId, sender)
@@ -498,8 +559,8 @@ then
 ### RunTogether.SendFriendRequest#2
 
 Authored path: `RunTogether.SendFriendRequest`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 20.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 23.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
 
 ```reaction
 when Friending.request (recipient, sender, request), asked by RunTogether.SendFriendRequest
@@ -538,8 +599,8 @@ then
 ### RunTogether.SuggestChange
 
 Authored path: `RunTogether.SuggestChange`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 33.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
 
 ```reaction
 when RequestBoundary.request (change, decider, event, path: "/suggestions/create", requestId, suggester)
@@ -550,8 +611,8 @@ then
 ### RunTogether.SuggestChange#2
 
 Authored path: `RunTogether.SuggestChange`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 33.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
 
 ```reaction
 when ChangeSuggesting.suggest (change, decider, event, suggester, suggestion), asked by RunTogether.SuggestChange
@@ -590,8 +651,8 @@ then
 ### RunTogether.WithdrawSuggestion
 
 Authored path: `RunTogether.WithdrawSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 38.
 
 ```reaction
 when RequestBoundary.request (path: "/suggestions/withdraw", requestId, suggester, suggestion)
@@ -602,8 +663,8 @@ then
 ### RunTogether.WithdrawSuggestion#2
 
 Authored path: `RunTogether.WithdrawSuggestion`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 30.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 38.
 
 ```reaction
 when ChangeSuggesting.withdraw (suggester, suggestion), asked by RunTogether.WithdrawSuggestion
@@ -625,7 +686,7 @@ not listed here have no explicit input contract.
 - `/friends/remove` — requires `user`, `friendship`
 - `/friends/request` — requires `sender`, `recipient`
 - `/runs/cancel` — requires `owner`, `run`
-- `/runs/create` — requires `owner`, `startTime`, `distance`, `pace`, `location`
+- `/runs/create` — requires `details`, `distance`, `location`, `owner`, `pace`, `startTime`
 - `/runs/flexibility` — requires `owner`, `run`; fills `earliestTime` with null when absent; fills `latestTime` with null when absent; fills `maxDistance` with null when absent; fills `maxPace` with null when absent; fills `minDistance` with null when absent; fills `minPace` with null when absent
 - `/runs/join` — requires `user`, `event`
 - `/runs/leave` — requires `user`, `event`

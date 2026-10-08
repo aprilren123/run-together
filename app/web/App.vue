@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Home, CalendarDays, Users, User, ChevronRight, ArrowLeft, UserRoundPlus } from "lucide-vue-next";
+import { Home, CalendarDays, Users, User, ChevronRight, ArrowLeft, UserRoundPlus, MapPin, Clock3, Route } from "lucide-vue-next";
 
 interface Run {
   run: string;
@@ -9,6 +9,13 @@ interface Run {
   distance: number;
   pace: number;
   location: string;
+  details?: string | null;
+  earliestTime?: string | null;
+  latestTime?: string | null;
+  minDistance?: number | null;
+  maxDistance?: number | null;
+  minPace?: number | null;
+  maxPace?: number | null;
 }
 
 interface Friendship {
@@ -18,9 +25,37 @@ interface Friendship {
 }
 
 const currentUser = ref("Jamie");
-const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar">("home");
+const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar" | "run-details">("home");
 
 const runs = ref<Run[]>([]);
+const selectedRunId = ref<string | null>(null);
+const participations = ref<{ participation: string; user: string; event: string }[]>([]);
+const runDetailsError = ref("");
+const selectedRun = computed(() => runs.value.find(r => r.run === selectedRunId.value) ?? null);
+const selectedParticipants = computed(() => {
+  if (!selectedRun.value) return [];
+  return [selectedRun.value.owner, ...new Set(participations.value.filter(p => p.event === selectedRunId.value).map(p => p.user).filter(u => u !== selectedRun.value?.owner))];
+});
+function isFlexible(run: Run): boolean {
+  return [run.earliestTime, run.latestTime, run.minDistance, run.maxDistance, run.minPace, run.maxPace].some(v => v !== null && v !== undefined);
+}
+async function loadParticipants() {
+  runDetailsError.value = "";
+  try {
+    const response = await fetch("/api/runs/participants", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error ?? "Could not load participants.");
+    participations.value = data.participants.participations;
+  } catch (error) {
+    runDetailsError.value = error instanceof Error ? error.message : "Could not load participants.";
+  }
+}
+async function openRun(run: Run) {
+  selectedRunId.value = run.run;
+  currentPage.value = "run-details";
+  await loadParticipants();
+}
+
 const friendships = ref<Friendship[]>([]);
 interface FriendRequest { request: string; sender: string; recipient: string; }
 const requests = ref<FriendRequest[]>([]);
@@ -42,12 +77,46 @@ const myFriends = computed(() =>
 const incomingRequests = computed(() => requests.value.filter(r => r.recipient === currentUser.value));
 const outgoingRequests = computed(() => requests.value.filter(r => r.sender === currentUser.value));
 
-// Home shows only runs belonging to the selected user or accepted friends.
+// Show upcoming runs created by the current user or accepted friends.
+// This is prototype-level filtering; the backend still returns all runs.
 const visibleRuns = computed(() =>
-  runs.value.filter(
-    (run) => run.owner === currentUser.value || myFriends.value.includes(run.owner),
-  ),
+  runs.value
+    .filter(
+      (run) =>
+        (run.owner === currentUser.value || myFriends.value.includes(run.owner)) &&
+        new Date(run.startTime).getTime() >= Date.now(),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    ),
 );
+
+function formatRunDate(start: string): string {
+  return new Date(start).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatRunTime(start: string): string {
+  return new Date(start).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function runTitle(start: string): string {
+  const hour = new Date(start).getHours();
+  if (hour < 11) return "Morning run";
+  if (hour < 16) return "Afternoon run";
+  return "Evening run";
+}
+
+function mapsUrl(meetingPoint: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meetingPoint)}`;
+}
 
 async function loadFriends() {
   friendError.value = "";
@@ -146,6 +215,7 @@ const startTime = ref("");
 const distance = ref<number | null>(null);
 const pace = ref<number | null>(null);
 const location = ref("");
+const details = ref("");
 const hasFlexibility = ref(false);
 
 const earliestTime = ref("");
@@ -233,6 +303,7 @@ async function createRun() {
         distance: distance.value,
         pace: pace.value,
         location: location.value,
+        details: details.value,
       }),
     });
 
@@ -278,6 +349,7 @@ async function createRun() {
     distance.value = null;
     pace.value = null;
     location.value = "";
+    details.value = "";
 
     hasFlexibility.value = false;
     earliestTime.value = "";
@@ -309,26 +381,57 @@ onMounted(async () => {
 
     </header>
 
-    <button
-      class="create-run-button"
-      @click="currentPage = 'create'"
-    >
-      + Create a Run
-    </button>
+    <div class="home-heading">
+      <h2>Upcoming runs</h2>
+      <button
+        class="create-run-button"
+        type="button"
+        @click="currentPage = 'create'"
+      >
+        + Create a Run
+      </button>
+    </div>
 
-    <h2>Upcoming Runs</h2>
-
-    <p v-if="visibleRuns.length === 0">
-      No upcoming runs.
+    <p v-if="visibleRuns.length === 0" class="muted-text">
+      No upcoming runs from you or your friends. Create a run to get started!
     </p>
 
-    <ul v-else>
-      <li v-for="run in visibleRuns" :key="run.run">
-        <strong>{{ run.owner }}</strong>
-        is running {{ run.distance }} miles at {{ run.startTime }}
-        along {{ run.location }}.
-      </li>
-    </ul>
+    <div v-else class="run-feed">
+      <article v-for="run in visibleRuns" :key="run.run" class="run-card clickable-run-card" tabindex="0" role="button" :aria-label="`View ${run.owner}'s run`" @click="openRun(run)" @keydown.enter="openRun(run)" @keydown.space.prevent="openRun(run)">
+        <div class="run-card-owner">
+          <span class="small-avatar">{{ run.owner.charAt(0).toUpperCase() }}</span>
+          <div>
+            <strong>{{ run.owner }}</strong>
+            <p class="run-card-date">{{ formatRunDate(run.startTime) }}</p>
+          </div>
+          <span v-if="run.owner === currentUser" class="your-run-badge">Your run</span>
+        </div>
+
+        <div class="run-title-row"><h3>{{ runTitle(run.startTime) }}</h3><span class="flex-badge" :class="isFlexible(run) ? 'flexible' : 'fixed'">{{ isFlexible(run) ? "Flexible" : "Fixed" }}</span></div>
+        <div class="run-card-detail">
+          <Route :size="17" />
+          <span>{{ run.distance }} {{ run.distance === 1 ? 'mile' : 'miles' }} · {{ run.pace }} min/mi</span>
+        </div>
+        <div class="run-card-detail">
+          <Clock3 :size="17" />
+          <span>{{ formatRunTime(run.startTime) }}</span>
+        </div>
+        <div class="run-card-detail">
+          <MapPin :size="17" />
+          <span>Meet at {{ run.location }}</span>
+        </div>
+        <a
+          class="run-map-link"
+          :href="mapsUrl(run.location)"
+          target="_blank"
+          rel="noopener noreferrer"
+          @click.stop
+        >
+          View meeting point on Google Maps
+          <ChevronRight :size="16" />
+        </a>
+      </article>
+    </div>
   </main>
 
   <!-- Create run page -->
@@ -384,12 +487,31 @@ onMounted(async () => {
       </label>
 
       <label>
-        Location
+        Meeting point
         <input
           v-model="location"
           type="text"
+          placeholder="e.g. Arthur Fiedler Footbridge, Boston"
           required
         />
+        <span class="field-hint">Where should friends meet to start the run? Enter a public landmark or address.</span>
+      </label>
+
+      <a
+        v-if="location.trim()"
+        class="meeting-point-preview"
+        :href="mapsUrl(location)"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <MapPin :size="17" />
+        Check this meeting point on Google Maps
+        <ChevronRight :size="16" />
+      </a>
+
+      <label>
+        Details (optional)
+        <textarea v-model="details" rows="4" maxlength="1500" placeholder="Describe the route, meeting instructions, or anything friends should know."></textarea>
       </label>
 
       <section class="flexibility-section">
@@ -483,6 +605,36 @@ onMounted(async () => {
         Save run
       </button>
     </form>
+  </main>
+
+  <!-- Run details -->
+  <main v-else-if="currentPage === 'run-details' && selectedRun" class="run-details-page">
+    <div class="details-header">
+      <button class="back-button" type="button" aria-label="Back to home" @click="currentPage = 'home'"><ArrowLeft :size="25" /></button>
+      <span class="small-avatar">{{ selectedRun.owner.charAt(0).toUpperCase() }}</span>
+      <div><strong>{{ selectedRun.owner }}</strong><p class="run-card-date">{{ formatRunDate(selectedRun.startTime) }} · {{ formatRunTime(selectedRun.startTime) }}</p></div>
+    </div>
+    <div class="run-title-row"><h1>{{ runTitle(selectedRun.startTime) }}</h1><span class="flex-badge" :class="isFlexible(selectedRun) ? 'flexible' : 'fixed'">{{ isFlexible(selectedRun) ? 'Flexible' : 'Fixed' }}</span></div>
+    <div class="run-card-detail"><MapPin :size="19" /><span>Meet at {{ selectedRun.location }}</span></div>
+    <div class="run-card-detail"><Route :size="19" /><span>{{ selectedRun.distance }} miles · {{ selectedRun.pace }} min/mi</span></div>
+    <div class="run-card-detail"><Clock3 :size="19" /><span>{{ formatRunTime(selectedRun.startTime) }}</span></div>
+    <div v-if="isFlexible(selectedRun)" class="flex-ranges">
+      <p v-if="selectedRun.earliestTime && selectedRun.latestTime">Time window: {{ formatRunTime(selectedRun.earliestTime) }} – {{ formatRunTime(selectedRun.latestTime) }}</p>
+      <p v-if="selectedRun.minDistance != null && selectedRun.maxDistance != null">Distance: {{ selectedRun.minDistance }}–{{ selectedRun.maxDistance }} miles</p>
+      <p v-if="selectedRun.minPace != null && selectedRun.maxPace != null">Pace: {{ selectedRun.minPace }}–{{ selectedRun.maxPace }} min/mi</p>
+    </div>
+    <a class="details-map-link" :href="mapsUrl(selectedRun.location)" target="_blank" rel="noopener noreferrer"><MapPin :size="19" /> View meeting point on Google Maps <ChevronRight :size="17" /></a>
+    <section class="run-details-section">
+      <h2>Going ({{ selectedParticipants.length }})</h2>
+      <p v-if="runDetailsError" class="form-error">{{ runDetailsError }}</p>
+      <div class="participants-list">
+        <div v-for="participant in selectedParticipants" :key="participant" class="participant"><span class="small-avatar">{{ participant.charAt(0).toUpperCase() }}</span><strong>{{ participant }}</strong><span v-if="participant === selectedRun.owner" class="muted-text">Host</span></div>
+      </div>
+    </section>
+    <section class="run-details-section">
+      <h2>Details</h2>
+      <p class="description-text">{{ selectedRun.details || 'No additional details provided.' }}</p>
+    </section>
   </main>
 
   <!-- Community: public discovery needs visibility and location support in the backend -->
@@ -580,7 +732,7 @@ onMounted(async () => {
   </main>
 
   <!-- Bottom navigation -->
-  <nav v-if="currentPage !== 'create'" class="bottom-nav" aria-label="Main navigation">
+  <nav v-if="currentPage !== 'create' && currentPage !== 'run-details'" class="bottom-nav" aria-label="Main navigation">
     <button
       class="nav-item"
       :class="{ active: currentPage === 'home' }"

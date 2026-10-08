@@ -30,6 +30,7 @@ a set of Runs with
   an optional maxDistance Number
   an optional minPace Number
   an optional maxPace Number
+  a details String
   Rule: distance is greater than 0
   Rule: pace is greater than 0
 ```
@@ -37,10 +38,10 @@ a set of Runs with
 ## Actions
 
 ```actions
-create(owner: User, startTime: String, distance: Number, pace: Number, location: String) : returns (run: Run)
+create(owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String) : returns (run: Run)
   where the provided run details are valid
   then
-    add a new run with owner, startTime, distance, pace, and location
+    add a new run with owner, startTime, distance, pace, location, and details
     returns run
   where the provided run details are invalid
   then
@@ -83,6 +84,6 @@ cancel(owner: User, run: Run) : returns (run: Run)
 ## Queries
 
 ```queries
-_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number)
+_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number)
   Answers every run, and no rows when there are none.
 ```
