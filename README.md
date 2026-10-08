@@ -15,3 +15,4 @@ A social running app that makes it easier for friends to turn the runs they are 
 ### P2
 
 - [User Journey](p2/user-journey.md)
+- [Screen recording](screen-recording.mov)
