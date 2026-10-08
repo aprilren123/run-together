@@ -42,5 +42,4 @@ The run owner can review proposed changes and decide whether to accept or reject
 
 ![Calendar view](images/Calendar%20view.png)
 
-Upcoming runs are organized by date to help users see how their own plans and their friends' runs fit into their week. 
-
+Upcoming runs are organized by date to help users see how their own plans and their friends' runs fit into their week.

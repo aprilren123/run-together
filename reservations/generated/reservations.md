@@ -44,6 +44,7 @@ _the authored explanation; this section records the generated shape._
 ### the reservation book
 
 Authored path: `Reservations.ReservationBook`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 4.
 
 ```former
@@ -81,6 +82,7 @@ then
 ### Reservations.Cancel
 
 Authored path: `Reservations.Cancel`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 11.
 - Covered by [Reservations](../design/compositions/Reservations.md), line 15.
 
@@ -93,6 +95,7 @@ then
 ### Reservations.Cancel#2
 
 Authored path: `Reservations.Cancel`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 11.
 - Covered by [Reservations](../design/compositions/Reservations.md), line 15.
 
@@ -107,6 +110,7 @@ then
 ### Reservations.List
 
 Authored path: `Reservations.List`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 3.
 - Covered by [Reservations](../design/compositions/Reservations.md), line 7.
 
@@ -119,6 +123,7 @@ then
 ### Reservations.Reserve
 
 Authored path: `Reservations.Reserve`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 10.
 - Covered by [Reservations](../design/compositions/Reservations.md), line 14.
 
@@ -131,6 +136,7 @@ then
 ### Reservations.Reserve#2
 
 Authored path: `Reservations.Reserve`.
+
 - Covered by [Reservations](../design/compositions/Reservations.md), line 10.
 - Covered by [Reservations](../design/compositions/Reservations.md), line 14.
 

@@ -3,10 +3,33 @@
 
 import type { applicationConceptSet as ApplicationConceptSet } from "../src/concepts.ts";
 
-type AtPath<T, P extends readonly string[]> = P extends readonly [infer H extends string, ...infer R extends string[]] ? H extends keyof T ? AtPath<T[H], R> : H extends `${number}` ? T extends readonly (infer Item)[] ? AtPath<Item, R> : never : never : T;
+type AtPath<T, P extends readonly string[]> = P extends readonly [
+  infer H extends string,
+  ...infer R extends string[],
+]
+  ? H extends keyof T
+    ? AtPath<T[H], R>
+    : H extends `${number}`
+      ? T extends readonly (infer Item)[]
+        ? AtPath<Item, R>
+        : never
+      : never
+  : T;
 type QueryRow<T> = T extends readonly (infer Row)[] ? Row : T;
-type AllOf<T extends readonly unknown[]> = T extends readonly [infer Head, ...infer Rest] ? Head & AllOf<Rest> : unknown;
-type Jsonify<T> = T extends Date ? string : T extends null | boolean | number | string ? T : T extends (...args: never[]) => unknown ? never : T extends readonly (infer Item)[] ? Jsonify<Item>[] : T extends object ? { [K in keyof T]: Jsonify<T[K]> } : never;
+type AllOf<T extends readonly unknown[]> = T extends readonly [infer Head, ...infer Rest]
+  ? Head & AllOf<Rest>
+  : unknown;
+type Jsonify<T> = T extends Date
+  ? string
+  : T extends null | boolean | number | string
+    ? T
+    : T extends (...args: never[]) => unknown
+      ? never
+      : T extends readonly (infer Item)[]
+        ? Jsonify<Item>[]
+        : T extends object
+          ? { [K in keyof T]: Jsonify<T[K]> }
+          : never;
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -15,21 +38,60 @@ export type AppWideError = never;
 export type ReservationsWire = {
   "/reservations/cancel": {
     input: {
-      "reservation": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0], ["reservation"]>>;
+      reservation: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0],
+          ["reservation"]
+        >
+      >;
     };
     output: {
-      "reservation": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0], ["reservation"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>>, ["reservation"]>]>>;
+      reservation: Jsonify<
+        AllOf<
+          [
+            AtPath<
+              Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0],
+              ["reservation"]
+            >,
+            AtPath<
+              Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>>,
+              ["reservation"]
+            >,
+          ]
+        >
+      >;
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NO_SUCH_RESERVATION" };
   };
   "/reservations/list": {
     input: Record<string, never>;
     output: {
-      "book": {
-        "reservations": {
-          "reservation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["reservation"]>>;
-          "resource": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["resource"]>>;
-          "user": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["user"]>>;
+      book: {
+        reservations: {
+          reservation: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["reservation"]
+            >
+          >;
+          resource: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["resource"]
+            >
+          >;
+          user: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["user"]
+            >
+          >;
         }[];
       };
     };
@@ -37,11 +99,26 @@ export type ReservationsWire = {
   };
   "/reservations/reserve": {
     input: {
-      "resource": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0], ["resource"]>>;
-      "user": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0], ["user"]>>;
+      resource: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0],
+          ["resource"]
+        >
+      >;
+      user: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0],
+          ["user"]
+        >
+      >;
     };
     output: {
-      "reservation": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>>, ["reservation"]>>;
+      reservation: Jsonify<
+        AtPath<
+          Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>>,
+          ["reservation"]
+        >
+      >;
     };
     error: { error: AppWideError | "ALREADY_RESERVED" | "INVALID_INPUT" };
   };
@@ -52,21 +129,60 @@ export type HttpAppWideError = never;
 export type ReservationsWireHttp = {
   "/reservations/cancel": {
     input: {
-      "reservation": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0], ["reservation"]>>;
+      reservation: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0],
+          ["reservation"]
+        >
+      >;
     };
     output: {
-      "reservation": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0], ["reservation"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>>, ["reservation"]>]>>;
+      reservation: Jsonify<
+        AllOf<
+          [
+            AtPath<
+              Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>[0],
+              ["reservation"]
+            >,
+            AtPath<
+              Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["cancel"]>>,
+              ["reservation"]
+            >,
+          ]
+        >
+      >;
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
   };
   "/reservations/list": {
     input: Record<string, never>;
     output: {
-      "book": {
-        "reservations": {
-          "reservation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["reservation"]>>;
-          "resource": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["resource"]>>;
-          "user": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>>, ["user"]>>;
+      book: {
+        reservations: {
+          reservation: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["reservation"]
+            >
+          >;
+          resource: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["resource"]
+            >
+          >;
+          user: Jsonify<
+            AtPath<
+              QueryRow<
+                Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["_all"]>>
+              >,
+              ["user"]
+            >
+          >;
         }[];
       };
     };
@@ -74,11 +190,26 @@ export type ReservationsWireHttp = {
   };
   "/reservations/reserve": {
     input: {
-      "resource": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0], ["resource"]>>;
-      "user": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0], ["user"]>>;
+      resource: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0],
+          ["resource"]
+        >
+      >;
+      user: Jsonify<
+        AtPath<
+          Parameters<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>[0],
+          ["user"]
+        >
+      >;
     };
     output: {
-      "reservation": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>>, ["reservation"]>>;
+      reservation: Jsonify<
+        AtPath<
+          Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Reserving"]["reserve"]>>,
+          ["reservation"]
+        >
+      >;
     };
     error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" };
   };

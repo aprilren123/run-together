@@ -64,5 +64,3 @@ A run could either have fixed details or include some flexibility. For example, 
 - **Runners looking to join friends:** Runners who would like to run socially and may be interested in joining a friend's run when their schedules, distances, or other preferences line up.
 
 The same person can take on either role depending on the run.
-
-
