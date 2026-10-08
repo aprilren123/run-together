@@ -1,3 +1,3 @@
 # Screen recording
 
-![Home feed](Home%20feed.png)
+![Screen recording](screen-recording.mov)
