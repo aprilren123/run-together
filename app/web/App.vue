@@ -53,7 +53,97 @@ async function loadParticipants() {
 async function openRun(run: Run) {
   selectedRunId.value = run.run;
   currentPage.value = "run-details";
-  await loadParticipants();
+  runActionMessage.value = "";
+  await Promise.all([loadParticipants(), loadSuggestions()]);
+}
+
+interface Suggestion {
+  suggestion: string;
+  suggester: string;
+  decider: string;
+  event: string;
+  change: string;
+  status: string;
+}
+const suggestions = ref<Suggestion[]>([]);
+const suggestionOpen = ref(false);
+const suggestedTime = ref("");
+const suggestionError = ref("");
+const runActionMessage = ref("");
+const runActionBusy = ref(false);
+const isJoined = computed(() => participations.value.some(p => p.event === selectedRunId.value && p.user === currentUser.value));
+const pendingSuggestions = computed(() => suggestions.value.filter(s => s.event === selectedRunId.value && s.status === "PENDING"));
+const suggestionTimeError = computed(() => {
+  const run = selectedRun.value;
+  if (!run || !suggestedTime.value) return "Select a start time.";
+  if (suggestedTime.value === run.startTime) return "Choose a different time to suggest.";
+  if (!run.earliestTime || !run.latestTime) return "The host has not enabled time changes for this run.";
+  if (suggestedTime.value < run.earliestTime || suggestedTime.value > run.latestTime) {
+    return `Choose a time between ${formatRunTime(run.earliestTime)} and ${formatRunTime(run.latestTime)}.`;
+  }
+  return "";
+});
+async function postAction(path: string, body: Record<string, string>) {
+  const response = await fetch(`/api/${path}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(typeof data.error === "string" ? data.error : `Could not complete ${path}.`);
+  return data;
+}
+async function loadSuggestions() {
+  try {
+    const data = await postAction("suggestions/list", {});
+    suggestions.value = data.suggestions.suggestions;
+  } catch (error) {
+    runDetailsError.value = error instanceof Error ? error.message : "Could not load suggestions.";
+  }
+}
+function openSuggestion() {
+  if (!selectedRun.value) return;
+  suggestedTime.value = selectedRun.value.startTime.slice(0, 16);
+  suggestionError.value = "";
+  suggestionOpen.value = true;
+}
+async function sendSuggestion() {
+  if (!selectedRun.value || suggestionTimeError.value || runActionBusy.value) return;
+  suggestionError.value = "";
+  runActionBusy.value = true;
+  try {
+    await postAction("suggestions/create", {
+      suggester: currentUser.value, decider: selectedRun.value.owner,
+      event: selectedRun.value.run, change: suggestedTime.value,
+    });
+    suggestionOpen.value = false;
+    runActionMessage.value = `Suggestion sent to ${selectedRun.value.owner}.`;
+    await loadSuggestions();
+  } catch (error) {
+    suggestionError.value = error instanceof Error ? error.message : "Could not send suggestion.";
+  } finally { runActionBusy.value = false; }
+}
+async function joinSelectedRun() {
+  if (!selectedRun.value || runActionBusy.value || isJoined.value) return;
+  runActionBusy.value = true;
+  runDetailsError.value = "";
+  try {
+    await postAction("runs/join", { user: currentUser.value, event: selectedRun.value.run });
+    await loadParticipants();
+    runActionMessage.value = "You joined this run!";
+  } catch (error) {
+    runDetailsError.value = error instanceof Error ? error.message : "Could not join run.";
+  } finally { runActionBusy.value = false; }
+}
+async function decideSuggestion(suggestion: string, action: "accept" | "reject") {
+  if (runActionBusy.value) return;
+  runActionBusy.value = true;
+  runDetailsError.value = "";
+  try {
+    await postAction(`suggestions/${action}`, { decider: currentUser.value, suggestion });
+    await Promise.all([loadSuggestions(), loadRuns(), loadParticipants()]);
+    runActionMessage.value = action === "accept" ? "Suggestion accepted. Run updated." : "Suggestion rejected.";
+  } catch (error) {
+    runDetailsError.value = error instanceof Error ? error.message : "Could not process suggestion.";
+  } finally { runActionBusy.value = false; }
 }
 
 const friendships = ref<Friendship[]>([]);
@@ -631,6 +721,21 @@ onMounted(async () => {
         <div v-for="participant in selectedParticipants" :key="participant" class="participant"><span class="small-avatar">{{ participant.charAt(0).toUpperCase() }}</span><strong>{{ participant }}</strong><span v-if="participant === selectedRun.owner" class="muted-text">Host</span></div>
       </div>
     </section>
+    <p v-if="runActionMessage" class="success-message" role="status">{{ runActionMessage }}</p>
+    <section v-if="selectedRun.owner !== currentUser" class="run-actions">
+      <button class="save-run-button" type="button" :disabled="runActionBusy || isJoined" @click="joinSelectedRun">{{ isJoined ? 'Joined' : 'Join run' }}</button>
+      <button class="outline-action-button" type="button" @click="openSuggestion">Suggest a change</button>
+    </section>
+    <section v-else-if="pendingSuggestions.length" class="run-details-section">
+      <h2>Pending suggestions</h2>
+      <div v-for="suggestion in pendingSuggestions" :key="suggestion.suggestion" class="suggestion-item">
+        <div><strong>{{ suggestion.suggester }}</strong> suggests {{ formatRunTime(suggestion.change) }}</div>
+        <div class="suggestion-buttons">
+          <button type="button" class="create-run-button" :disabled="runActionBusy" @click="decideSuggestion(suggestion.suggestion, 'accept')">Accept</button>
+          <button type="button" class="outline-action-button" :disabled="runActionBusy" @click="decideSuggestion(suggestion.suggestion, 'reject')">Reject</button>
+        </div>
+      </div>
+    </section>
     <section class="run-details-section">
       <h2>Details</h2>
       <p class="description-text">{{ selectedRun.details || 'No additional details provided.' }}</p>
@@ -730,6 +835,35 @@ onMounted(async () => {
       <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
     </section>
   </main>
+
+  <!-- Prefilled suggestion modal: backend currently supports start-time changes only -->
+  <div v-if="suggestionOpen && selectedRun" class="suggestion-backdrop" @click.self="suggestionOpen = false">
+    <div class="suggestion-modal" role="dialog" aria-modal="true" aria-labelledby="suggestion-title">
+      <div class="suggestion-modal-header">
+        <h2 id="suggestion-title">Suggest a change</h2>
+        <button type="button" class="suggestion-close" aria-label="Close suggestion" @click="suggestionOpen = false">×</button>
+      </div>
+      <p class="muted-text">Propose a new start time to join this run. Your suggestion will be sent to {{ selectedRun.owner }}.</p>
+      <form class="suggestion-form" @submit.prevent="sendSuggestion">
+        <label>Start time
+          <input v-model="suggestedTime" type="datetime-local" required :min="selectedRun.earliestTime || undefined" :max="selectedRun.latestTime || undefined" />
+        </label>
+        <p v-if="suggestionTimeError" class="form-error" role="alert">{{ suggestionTimeError }}</p>
+        <p v-else class="field-hint">Within the host's allowed time window.</p>
+        <label>Distance (currently unchanged)
+          <input :value="selectedRun.distance + ' miles'" disabled />
+        </label>
+        <label>Pace (currently unchanged)
+          <input :value="selectedRun.pace + ' min/mi'" disabled />
+        </label>
+        <label>Location (currently unchanged)
+          <input :value="selectedRun.location" disabled />
+        </label>
+        <p v-if="suggestionError" class="form-error" role="alert">{{ suggestionError }}</p>
+        <button class="save-run-button" type="submit" :disabled="!!suggestionTimeError || runActionBusy">{{ runActionBusy ? 'Sending…' : 'Send suggestion' }}</button>
+      </form>
+    </div>
+  </div>
 
   <!-- Bottom navigation -->
   <nav v-if="currentPage !== 'create' && currentPage !== 'run-details'" class="bottom-nav" aria-label="Main navigation">
