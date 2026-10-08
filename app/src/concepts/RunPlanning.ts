@@ -26,7 +26,7 @@ function validRunDetails(distance: number, pace: number) {
 
 function validFlexibility(run: Run) {
   const hasEarliest = run.earliestTime != null;
-const hasLatest = run.latestTime != null;
+  const hasLatest = run.latestTime != null;
 
   if (hasEarliest !== hasLatest) {
     return false;
@@ -35,16 +35,13 @@ const hasLatest = run.latestTime != null;
   if (
     hasEarliest &&
     hasLatest &&
-    !(
-      run.earliestTime! <= run.startTime &&
-      run.startTime <= run.latestTime!
-    )
+    !(run.earliestTime! <= run.startTime && run.startTime <= run.latestTime!)
   ) {
     return false;
   }
 
   const hasMinDistance = run.minDistance != null;
-const hasMaxDistance = run.maxDistance != null;
+  const hasMaxDistance = run.maxDistance != null;
 
   if (hasMinDistance !== hasMaxDistance) {
     return false;
@@ -53,11 +50,7 @@ const hasMaxDistance = run.maxDistance != null;
   if (
     hasMinDistance &&
     hasMaxDistance &&
-    !(
-      run.minDistance! > 0 &&
-      run.minDistance! <= run.distance &&
-      run.distance <= run.maxDistance!
-    )
+    !(run.minDistance! > 0 && run.minDistance! <= run.distance && run.distance <= run.maxDistance!)
   ) {
     return false;
   }
@@ -72,11 +65,7 @@ const hasMaxDistance = run.maxDistance != null;
   if (
     hasMinPace &&
     hasMaxPace &&
-    !(
-      run.minPace! > 0 &&
-      run.minPace! <= run.pace &&
-      run.pace <= run.maxPace!
-    )
+    !(run.minPace! > 0 && run.minPace! <= run.pace && run.pace <= run.maxPace!)
   ) {
     return false;
   }
@@ -107,11 +96,9 @@ export class RunPlanningConcept {
     details: string;
   }) {
     if (!validRunDetails(distance, pace)) {
-      throw new InvalidRun(
-        "The run details or flexibility ranges are invalid.",
-      );
+      throw new InvalidRun("The run details or flexibility ranges are invalid.");
     }
-  
+
     const run: Run = {
       _id: crypto.randomUUID(),
       owner,
@@ -121,9 +108,9 @@ export class RunPlanningConcept {
       location,
       details,
     };
-  
+
     await this.runs.insertOne(run);
-  
+
     return { run: run._id };
   }
 
@@ -145,9 +132,7 @@ export class RunPlanningConcept {
     const existing = await this.runs.findOne({ _id: run });
 
     if (!existing || existing.owner !== owner) {
-      throw new NotOwner(
-        "The run does not exist or does not belong to this user.",
-      );
+      throw new NotOwner("The run does not exist or does not belong to this user.");
     }
 
     const updated: Run = {
@@ -158,10 +143,7 @@ export class RunPlanningConcept {
       location: location ?? existing.location,
     };
 
-    if (
-      !validRunDetails(updated.distance, updated.pace) ||
-      !validFlexibility(updated)
-    ) {
+    if (!validRunDetails(updated.distance, updated.pace) || !validFlexibility(updated)) {
       throw new InvalidRun("The updated run details are invalid.");
     }
 
@@ -200,13 +182,11 @@ export class RunPlanningConcept {
     maxPace?: number | null;
   }) {
     const existing = await this.runs.findOne({ _id: run });
-  
+
     if (!existing || existing.owner !== owner) {
-      throw new NotOwner(
-        "The run does not exist or does not belong to this user.",
-      );
+      throw new NotOwner("The run does not exist or does not belong to this user.");
     }
-  
+
     const flexibility = {
       earliestTime: earliestTime ?? undefined,
       latestTime: latestTime ?? undefined,
@@ -215,41 +195,31 @@ export class RunPlanningConcept {
       minPace: minPace ?? undefined,
       maxPace: maxPace ?? undefined,
     };
-  
+
     const updated: Run = {
       ...existing,
       ...flexibility,
     };
-  
+
     if (!validFlexibility(updated)) {
-      throw new InvalidFlexibility(
-        "The flexibility ranges are invalid.",
-      );
+      throw new InvalidFlexibility("The flexibility ranges are invalid.");
     }
-  
+
     await this.runs.updateOne(
       { _id: run },
       {
         $set: flexibility,
       },
     );
-  
+
     return { run };
   }
 
-  async cancel({
-    owner,
-    run,
-  }: {
-    owner: string;
-    run: string;
-  }) {
+  async cancel({ owner, run }: { owner: string; run: string }) {
     const existing = await this.runs.findOne({ _id: run });
 
     if (!existing || existing.owner !== owner) {
-      throw new NotOwner(
-        "The run does not exist or does not belong to this user.",
-      );
+      throw new NotOwner("The run does not exist or does not belong to this user.");
     }
 
     await this.runs.deleteOne({ _id: run });
@@ -259,7 +229,7 @@ export class RunPlanningConcept {
 
   async _all(_input: Record<string, never>) {
     const rows = await this.runs.find().toArray();
-  
+
     return rows.map(({ _id, ...rest }) => ({
       run: _id,
       ...rest,

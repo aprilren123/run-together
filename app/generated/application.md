@@ -27,4 +27,3 @@ where
 then
   RequestBoundary.respond (error: message, requestId)
 ```
-

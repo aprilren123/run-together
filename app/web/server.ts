@@ -4,8 +4,8 @@ const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:3000";
 
 function proxy(request: Request) {
   const url = new URL(request.url);
-  return fetch(new URL(url.pathname + url.search, backend), request).catch(
-    () => Response.json({ error: "UNAVAILABLE" }, { status: 503 }),
+  return fetch(new URL(url.pathname + url.search, backend), request).catch(() =>
+    Response.json({ error: "UNAVAILABLE" }, { status: 503 }),
   );
 }
 

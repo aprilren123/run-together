@@ -22,23 +22,13 @@ export class FriendingConcept {
   private readonly friendships: Collection<Friendship>;
 
   constructor(db: Db) {
-    this.requests =
-      db.collection<FriendRequest>("friending.requests");
-    this.friendships =
-      db.collection<Friendship>("friending.friendships");
+    this.requests = db.collection<FriendRequest>("friending.requests");
+    this.friendships = db.collection<Friendship>("friending.friendships");
   }
 
-  async request({
-    sender,
-    recipient,
-  }: {
-    sender: string;
-    recipient: string;
-  }) {
+  async request({ sender, recipient }: { sender: string; recipient: string }) {
     if (sender === recipient) {
-      throw new CannotRequest(
-        "A friend request cannot be created between these users.",
-      );
+      throw new CannotRequest("A friend request cannot be created between these users.");
     }
 
     const existingRequest = await this.requests.findOne({
@@ -56,9 +46,7 @@ export class FriendingConcept {
     });
 
     if (existingRequest || existingFriendship) {
-      throw new CannotRequest(
-        "A friend request cannot be created between these users.",
-      );
+      throw new CannotRequest("A friend request cannot be created between these users.");
     }
 
     const request = crypto.randomUUID();
@@ -72,21 +60,13 @@ export class FriendingConcept {
     return { request };
   }
 
-  async accept({
-    recipient,
-    request,
-  }: {
-    recipient: string;
-    request: string;
-  }) {
+  async accept({ recipient, request }: { recipient: string; request: string }) {
     const existing = await this.requests.findOne({
       _id: request,
     });
 
     if (!existing || existing.recipient !== recipient) {
-      throw new CannotAccept(
-        "This friend request cannot be accepted.",
-      );
+      throw new CannotAccept("This friend request cannot be accepted.");
     }
 
     const friendship = crypto.randomUUID();
@@ -102,21 +82,13 @@ export class FriendingConcept {
     return { friendship };
   }
 
-  async reject({
-    recipient,
-    request,
-  }: {
-    recipient: string;
-    request: string;
-  }) {
+  async reject({ recipient, request }: { recipient: string; request: string }) {
     const existing = await this.requests.findOne({
       _id: request,
     });
 
     if (!existing || existing.recipient !== recipient) {
-      throw new CannotReject(
-        "This friend request cannot be rejected.",
-      );
+      throw new CannotReject("This friend request cannot be rejected.");
     }
 
     await this.requests.deleteOne({ _id: request });
@@ -124,24 +96,13 @@ export class FriendingConcept {
     return { request };
   }
 
-  async remove({
-    user,
-    friendship,
-  }: {
-    user: string;
-    friendship: string;
-  }) {
+  async remove({ user, friendship }: { user: string; friendship: string }) {
     const existing = await this.friendships.findOne({
       _id: friendship,
     });
 
-    if (
-      !existing ||
-      (existing.user1 !== user && existing.user2 !== user)
-    ) {
-      throw new CannotRemove(
-        "This friendship cannot be removed by this user.",
-      );
+    if (!existing || (existing.user1 !== user && existing.user2 !== user)) {
+      throw new CannotRemove("This friendship cannot be removed by this user.");
     }
 
     await this.friendships.deleteOne({ _id: friendship });

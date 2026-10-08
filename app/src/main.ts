@@ -21,12 +21,13 @@ const server = Bun.serve({
 
     "/health": async () => {
       try {
-        await db
-          .collection("runplanning.runs")
-          .findOne({}, {
+        await db.collection("runplanning.runs").findOne(
+          {},
+          {
             maxTimeMS: 2000,
             timeoutMS: 3000,
-          });
+          },
+        );
 
         return Response.json(
           { status: "ok" },

@@ -5,11 +5,7 @@ export class CannotAccept extends Error {}
 export class CannotReject extends Error {}
 export class CannotWithdraw extends Error {}
 
-type SuggestionStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "REJECTED"
-  | "WITHDRAWN";
+type SuggestionStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
 
 interface Suggestion {
   _id: string;
@@ -24,8 +20,7 @@ export class ChangeSuggestingConcept {
   private readonly suggestions: Collection<Suggestion>;
 
   constructor(db: Db) {
-    this.suggestions =
-      db.collection<Suggestion>("changesuggesting.suggestions");
+    this.suggestions = db.collection<Suggestion>("changesuggesting.suggestions");
   }
 
   async suggest({
@@ -40,9 +35,7 @@ export class ChangeSuggestingConcept {
     change: string;
   }) {
     if (suggester === decider) {
-      throw new SameUser(
-        "A user cannot suggest a change to themselves.",
-      );
+      throw new SameUser("A user cannot suggest a change to themselves.");
     }
 
     const suggestion = crypto.randomUUID();
@@ -59,31 +52,16 @@ export class ChangeSuggestingConcept {
     return { suggestion };
   }
 
-  async accept({
-    decider,
-    suggestion,
-  }: {
-    decider: string;
-    suggestion: string;
-  }) {
+  async accept({ decider, suggestion }: { decider: string; suggestion: string }) {
     const existing = await this.suggestions.findOne({
       _id: suggestion,
     });
 
-    if (
-      !existing ||
-      existing.decider !== decider ||
-      existing.status !== "PENDING"
-    ) {
-      throw new CannotAccept(
-        "This suggestion cannot be accepted.",
-      );
+    if (!existing || existing.decider !== decider || existing.status !== "PENDING") {
+      throw new CannotAccept("This suggestion cannot be accepted.");
     }
 
-    await this.suggestions.updateOne(
-      { _id: suggestion },
-      { $set: { status: "ACCEPTED" } },
-    );
+    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "ACCEPTED" } });
 
     return {
       event: existing.event,
@@ -92,60 +70,30 @@ export class ChangeSuggestingConcept {
     };
   }
 
-  async reject({
-    decider,
-    suggestion,
-  }: {
-    decider: string;
-    suggestion: string;
-  }) {
+  async reject({ decider, suggestion }: { decider: string; suggestion: string }) {
     const existing = await this.suggestions.findOne({
       _id: suggestion,
     });
 
-    if (
-      !existing ||
-      existing.decider !== decider ||
-      existing.status !== "PENDING"
-    ) {
-      throw new CannotReject(
-        "This suggestion cannot be rejected.",
-      );
+    if (!existing || existing.decider !== decider || existing.status !== "PENDING") {
+      throw new CannotReject("This suggestion cannot be rejected.");
     }
 
-    await this.suggestions.updateOne(
-      { _id: suggestion },
-      { $set: { status: "REJECTED" } },
-    );
+    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "REJECTED" } });
 
     return { suggestion };
   }
 
-  async withdraw({
-    suggester,
-    suggestion,
-  }: {
-    suggester: string;
-    suggestion: string;
-  }) {
+  async withdraw({ suggester, suggestion }: { suggester: string; suggestion: string }) {
     const existing = await this.suggestions.findOne({
       _id: suggestion,
     });
 
-    if (
-      !existing ||
-      existing.suggester !== suggester ||
-      existing.status !== "PENDING"
-    ) {
-      throw new CannotWithdraw(
-        "This suggestion cannot be withdrawn.",
-      );
+    if (!existing || existing.suggester !== suggester || existing.status !== "PENDING") {
+      throw new CannotWithdraw("This suggestion cannot be withdrawn.");
     }
 
-    await this.suggestions.updateOne(
-      { _id: suggestion },
-      { $set: { status: "WITHDRAWN" } },
-    );
+    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "WITHDRAWN" } });
 
     return { suggestion };
   }
@@ -153,15 +101,13 @@ export class ChangeSuggestingConcept {
   async _all(_input: Record<string, never>) {
     const rows = await this.suggestions.find().toArray();
 
-    return rows.map(
-      ({ _id, suggester, decider, event, change, status }) => ({
-        suggestion: _id,
-        suggester,
-        decider,
-        event,
-        change,
-        status,
-      }),
-    );
+    return rows.map(({ _id, suggester, decider, event, change, status }) => ({
+      suggestion: _id,
+      suggester,
+      decider,
+      event,
+      change,
+      status,
+    }));
   }
 }

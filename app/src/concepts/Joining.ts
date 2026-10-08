@@ -14,16 +14,12 @@ export class JoiningConcept {
   private indexed = false;
 
   constructor(db: Db) {
-    this.participations =
-      db.collection<Participation>("joining.participations");
+    this.participations = db.collection<Participation>("joining.participations");
   }
 
   async join({ user, event }: { user: string; event: string }) {
     if (!this.indexed) {
-      await this.participations.createIndex(
-        { user: 1, event: 1 },
-        { unique: true },
-      );
+      await this.participations.createIndex({ user: 1, event: 1 }, { unique: true });
       this.indexed = true;
     }
 

@@ -1,126 +1,128 @@
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { concepts } from "../concepts.ts";
-import {
-    each,
-    form,
-    former,
-    reaction,
-    when,
-  } from "@mit-sdg/sync-engine/language";
+import { each, form, former, reaction, when } from "@mit-sdg/sync-engine/language";
 
-const {
-  RunPlanning,
-  Joining,
-  ChangeSuggesting,
-  Friending,
-} = concepts;
+const { RunPlanning, Joining, ChangeSuggesting, Friending } = concepts;
 
 // ---------- Runs ----------
 
 const RunList = former(
-    "the run list",
-    (
-      _input,
-      {
-        run, owner, startTime, distance, pace, location,
-        details, earliestTime, latestTime,
-        minDistance, maxDistance, minPace, maxPace,
-      },
-    ) =>
-      form({
-        runs: each(
-          RunPlanning._all({}).is({
-            run, owner, startTime, distance, pace, location,
-            details, earliestTime, latestTime,
-            minDistance, maxDistance, minPace, maxPace,
-          }),
-        ).form({
-          run, owner, startTime, distance, pace, location,
-          details, earliestTime, latestTime,
-          minDistance, maxDistance, minPace, maxPace,
-        }),
-      }),
-  );
-
-  const CreateRun = endpoint(
-    "/runs/create",
-    ({
+  "the run list",
+  (
+    _input,
+    {
+      run,
       owner,
       startTime,
       distance,
       pace,
       location,
       details,
-      run,
-    }) =>
-      receive({
+      earliestTime,
+      latestTime,
+      minDistance,
+      maxDistance,
+      minPace,
+      maxPace,
+    },
+  ) =>
+    form({
+      runs: each(
+        RunPlanning._all({}).is({
+          run,
+          owner,
+          startTime,
+          distance,
+          pace,
+          location,
+          details,
+          earliestTime,
+          latestTime,
+          minDistance,
+          maxDistance,
+          minPace,
+          maxPace,
+        }),
+      ).form({
+        run,
         owner,
         startTime,
         distance,
         pace,
         location,
         details,
-      })
-        .then(
-          RunPlanning.create({
-            owner,
-            startTime,
-            distance,
-            pace,
-            location,
-            details,
-          }).responds({ run }),
-        )
-        .then(respond({ run })),
-  );
+        earliestTime,
+        latestTime,
+        minDistance,
+        maxDistance,
+        minPace,
+        maxPace,
+      }),
+    }),
+);
 
-  const UpdateRun = endpoint(
-    "/runs/update",
-    ({ owner, run, startTime, distance, pace, location }) =>
-      receive({
-        owner,
-        run,
-        startTime,
-        distance,
-        pace,
-        location,
-      })
-        .then(
-          RunPlanning.update({
-            owner,
-            run,
-            startTime,
-            distance,
-            pace,
-            location,
-          }).responds({ run }),
-        )
-        .then(respond({ run })),
-    {
-      input: {
-        required: ["owner", "run"],
-        defaults: {
-          startTime: null,
-          distance: null,
-          pace: null,
-          location: null,
-        },
+const CreateRun = endpoint(
+  "/runs/create",
+  ({ owner, startTime, distance, pace, location, details, run }) =>
+    receive({
+      owner,
+      startTime,
+      distance,
+      pace,
+      location,
+      details,
+    })
+      .then(
+        RunPlanning.create({
+          owner,
+          startTime,
+          distance,
+          pace,
+          location,
+          details,
+        }).responds({ run }),
+      )
+      .then(respond({ run })),
+);
+
+const UpdateRun = endpoint(
+  "/runs/update",
+  ({ owner, run, startTime, distance, pace, location }) =>
+    receive({
+      owner,
+      run,
+      startTime,
+      distance,
+      pace,
+      location,
+    })
+      .then(
+        RunPlanning.update({
+          owner,
+          run,
+          startTime,
+          distance,
+          pace,
+          location,
+        }).responds({ run }),
+      )
+      .then(respond({ run })),
+  {
+    input: {
+      required: ["owner", "run"],
+      defaults: {
+        startTime: null,
+        distance: null,
+        pace: null,
+        location: null,
       },
     },
-  );
+  },
+);
 
 const SetFlexibility = endpoint(
   "/runs/flexibility",
-  ({
-    owner,
-    run,
-    earliestTime,
-    latestTime,
-    minDistance,
-    maxDistance,
-    minPace,
-    maxPace,
-  }) =>
+  ({ owner, run, earliestTime, latestTime, minDistance, maxDistance, minPace, maxPace }) =>
     receive({
       owner,
       run,
@@ -177,33 +179,27 @@ const CancelRun = endpoint(
   },
 );
 
-const ListRuns = endpoint("/runs/list", () =>
-  receive({}).then(respond({ runs: RunList({}) })),
+const ListRuns = endpoint("/runs/list", () => receive({}).then(respond({ runs: RunList({}) })));
+
+const ParticipantList = former("the participant list", (_input, { participation, user, event }) =>
+  form({
+    participations: each(
+      Joining._all({}).is({
+        participation,
+        user,
+        event,
+      }),
+    ).form({
+      participation,
+      user,
+      event,
+    }),
+  }),
 );
 
-const ParticipantList = former(
-    "the participant list",
-    (_input, { participation, user, event }) =>
-      form({
-        participations: each(
-          Joining._all({}).is({
-            participation,
-            user,
-            event,
-          }),
-        ).form({
-          participation,
-          user,
-          event,
-        }),
-      }),
-  );
-  
-  const ListParticipants = endpoint("/runs/participants", () =>
-    receive({}).then(
-      respond({ participants: ParticipantList({}) }),
-    ),
-  );
+const ListParticipants = endpoint("/runs/participants", () =>
+  receive({}).then(respond({ participants: ParticipantList({}) })),
+);
 
 // ---------- Joining ----------
 
@@ -245,41 +241,39 @@ const LeaveRun = endpoint(
 
 // ---------- Friends ----------
 
-const FriendList = former(
-  "the friend list",
-  (_input, { friendship, user1, user2 }) =>
-    form({
-      friendships: each(
-        Friending._friendships({}).is({
-          friendship,
-          user1,
-          user2,
-        }),
-      ).form({
+const FriendList = former("the friend list", (_input, { friendship, user1, user2 }) =>
+  form({
+    friendships: each(
+      Friending._friendships({}).is({
         friendship,
         user1,
         user2,
       }),
+    ).form({
+      friendship,
+      user1,
+      user2,
     }),
+  }),
 );
 
 const FriendRequestList = former(
-    "the friend request list",
-    (_input, { request, sender, recipient }) =>
-      form({
-        requests: each(
-          Friending._requests({}).is({
-            request,
-            sender,
-            recipient,
-          }),
-        ).form({
+  "the friend request list",
+  (_input, { request, sender, recipient }) =>
+    form({
+      requests: each(
+        Friending._requests({}).is({
           request,
           sender,
           recipient,
         }),
+      ).form({
+        request,
+        sender,
+        recipient,
       }),
-  );
+    }),
+);
 
 const SendFriendRequest = endpoint(
   "/friends/request",
@@ -358,26 +352,14 @@ const ListFriends = endpoint("/friends/list", () =>
 );
 
 const ListFriendRequests = endpoint("/friends/requests", () =>
-    receive({}).then(
-      respond({ requests: FriendRequestList({}) }),
-    ),
-  );
+  receive({}).then(respond({ requests: FriendRequestList({}) })),
+);
 
 // ---------- Suggestions ----------
 
 const SuggestionList = former(
   "the suggestion list",
-  (
-    _input,
-    {
-      suggestion,
-      suggester,
-      decider,
-      event,
-      change,
-      status,
-    },
-  ) =>
+  (_input, { suggestion, suggester, decider, event, change, status }) =>
     form({
       suggestions: each(
         ChangeSuggesting._all({}).is({
@@ -441,38 +423,37 @@ const AcceptSuggestion = endpoint(
   },
 );
 
-const AcceptedSuggestionUpdatesRun = reaction(
-    ({ decider, event, change, suggester, suggestion }) =>
-      when(
-        ChangeSuggesting.accept({ decider, suggestion }).responds({
-          event,
-          change,
-          suggester,
-        }),
-      ).then(
-        RunPlanning.update({
-          owner: decider,
-          run: event,
-          startTime: change,
-        }),
-      ),
-  );
+const AcceptedSuggestionUpdatesRun = reaction(({ decider, event, change, suggester, suggestion }) =>
+  when(
+    ChangeSuggesting.accept({ decider, suggestion }).responds({
+      event,
+      change,
+      suggester,
+    }),
+  ).then(
+    RunPlanning.update({
+      owner: decider,
+      run: event,
+      startTime: change,
+    }),
+  ),
+);
 
-  const AcceptedSuggestionJoinsSuggester = reaction(
-    ({ decider, event, change, suggester, suggestion }) =>
-      when(
-        ChangeSuggesting.accept({ decider, suggestion }).responds({
-          event,
-          change,
-          suggester,
-        }),
-      ).then(
-        Joining.join({
-          user: suggester,
-          event,
-        }),
-      ),
-  );
+const AcceptedSuggestionJoinsSuggester = reaction(
+  ({ decider, event, change, suggester, suggestion }) =>
+    when(
+      ChangeSuggesting.accept({ decider, suggestion }).responds({
+        event,
+        change,
+        suggester,
+      }),
+    ).then(
+      Joining.join({
+        user: suggester,
+        event,
+      }),
+    ),
+);
 
 const RejectSuggestion = endpoint(
   "/suggestions/reject",
@@ -519,35 +500,35 @@ const ListSuggestions = endpoint("/suggestions/list", () =>
 );
 
 export const composition = {
-    RunList,
-    FriendList,
-    SuggestionList,
-  
-    CreateRun,
-    UpdateRun,
-    SetFlexibility,
-    CancelRun,
-    ListRuns,
-    ParticipantList,
-    ListParticipants,
-  
-    JoinRun,
-    LeaveRun,
-  
-    SendFriendRequest,
-    AcceptFriendRequest,
-    RejectFriendRequest,
-    RemoveFriend,
-    ListFriends,
-    ListFriendRequests,
-    FriendRequestList,
-  
-    SuggestChange,
-    AcceptSuggestion,
-    RejectSuggestion,
-    WithdrawSuggestion,
-    ListSuggestions,
-  
-    AcceptedSuggestionUpdatesRun,
-    AcceptedSuggestionJoinsSuggester,
-  };
+  RunList,
+  FriendList,
+  SuggestionList,
+
+  CreateRun,
+  UpdateRun,
+  SetFlexibility,
+  CancelRun,
+  ListRuns,
+  ParticipantList,
+  ListParticipants,
+
+  JoinRun,
+  LeaveRun,
+
+  SendFriendRequest,
+  AcceptFriendRequest,
+  RejectFriendRequest,
+  RemoveFriend,
+  ListFriends,
+  ListFriendRequests,
+  FriendRequestList,
+
+  SuggestChange,
+  AcceptSuggestion,
+  RejectSuggestion,
+  WithdrawSuggestion,
+  ListSuggestions,
+
+  AcceptedSuggestionUpdatesRun,
+  AcceptedSuggestionJoinsSuggester,
+};

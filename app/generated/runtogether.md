@@ -121,6 +121,7 @@ _the authored explanation; this section records the generated shape._
 ### the friend list
 
 Authored path: `RunTogether.FriendList`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 
 ```former
@@ -136,6 +137,7 @@ Former "the friend list" — inputs (); bindings (friendship, user1, user2); pro
 ### the friend request list
 
 Authored path: `RunTogether.FriendRequestList`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 
 ```former
@@ -151,6 +153,7 @@ Former "the friend request list" — inputs (); bindings (request, sender, recip
 ### the participant list
 
 Authored path: `RunTogether.ParticipantList`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 
 ```former
@@ -166,6 +169,7 @@ Former "the participant list" — inputs (); bindings (participation, user, even
 ### the run list
 
 Authored path: `RunTogether.RunList`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 
 ```former
@@ -191,6 +195,7 @@ Former "the run list" — inputs (); bindings (run, owner, startTime, distance, 
 ### the suggestion list
 
 Authored path: `RunTogether.SuggestionList`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```former
@@ -231,6 +236,7 @@ then
 ### RunTogether.AcceptFriendRequest
 
 Authored path: `RunTogether.AcceptFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
 
@@ -243,6 +249,7 @@ then
 ### RunTogether.AcceptFriendRequest#2
 
 Authored path: `RunTogether.AcceptFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 25.
 
@@ -257,6 +264,7 @@ then
 ### RunTogether.AcceptSuggestion
 
 Authored path: `RunTogether.AcceptSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
 
@@ -269,6 +277,7 @@ then
 ### RunTogether.AcceptSuggestion#2
 
 Authored path: `RunTogether.AcceptSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 36.
 
@@ -283,6 +292,7 @@ then
 ### RunTogether.AcceptedSuggestionJoinsSuggester
 
 Authored path: `RunTogether.AcceptedSuggestionJoinsSuggester`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```reaction
@@ -294,6 +304,7 @@ then
 ### RunTogether.AcceptedSuggestionUpdatesRun
 
 Authored path: `RunTogether.AcceptedSuggestionUpdatesRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 
 ```reaction
@@ -305,6 +316,7 @@ then
 ### RunTogether.CancelRun
 
 Authored path: `RunTogether.CancelRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 9.
 
@@ -317,6 +329,7 @@ then
 ### RunTogether.CancelRun#2
 
 Authored path: `RunTogether.CancelRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 9.
 
@@ -331,6 +344,7 @@ then
 ### RunTogether.CreateRun
 
 Authored path: `RunTogether.CreateRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 6.
 
@@ -343,6 +357,7 @@ then
 ### RunTogether.CreateRun#2
 
 Authored path: `RunTogether.CreateRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 6.
 
@@ -357,6 +372,7 @@ then
 ### RunTogether.JoinRun
 
 Authored path: `RunTogether.JoinRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
 
@@ -369,6 +385,7 @@ then
 ### RunTogether.JoinRun#2
 
 Authored path: `RunTogether.JoinRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 17.
 
@@ -383,6 +400,7 @@ then
 ### RunTogether.LeaveRun
 
 Authored path: `RunTogether.LeaveRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 18.
 
@@ -395,6 +413,7 @@ then
 ### RunTogether.LeaveRun#2
 
 Authored path: `RunTogether.LeaveRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 18.
 
@@ -409,6 +428,7 @@ then
 ### RunTogether.ListFriendRequests
 
 Authored path: `RunTogether.ListFriendRequests`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 29.
 
@@ -421,6 +441,7 @@ then
 ### RunTogether.ListFriends
 
 Authored path: `RunTogether.ListFriends`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 28.
 
@@ -433,6 +454,7 @@ then
 ### RunTogether.ListParticipants
 
 Authored path: `RunTogether.ListParticipants`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
 
@@ -445,6 +467,7 @@ then
 ### RunTogether.ListRuns
 
 Authored path: `RunTogether.ListRuns`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 12.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 15.
 
@@ -457,6 +480,7 @@ then
 ### RunTogether.ListSuggestions
 
 Authored path: `RunTogether.ListSuggestions`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
 
@@ -469,6 +493,7 @@ then
 ### RunTogether.RejectFriendRequest
 
 Authored path: `RunTogether.RejectFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
 
@@ -481,6 +506,7 @@ then
 ### RunTogether.RejectFriendRequest#2
 
 Authored path: `RunTogether.RejectFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 26.
 
@@ -495,6 +521,7 @@ then
 ### RunTogether.RejectSuggestion
 
 Authored path: `RunTogether.RejectSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 37.
 
@@ -507,6 +534,7 @@ then
 ### RunTogether.RejectSuggestion#2
 
 Authored path: `RunTogether.RejectSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 37.
 
@@ -521,6 +549,7 @@ then
 ### RunTogether.RemoveFriend
 
 Authored path: `RunTogether.RemoveFriend`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 27.
 
@@ -533,6 +562,7 @@ then
 ### RunTogether.RemoveFriend#2
 
 Authored path: `RunTogether.RemoveFriend`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 27.
 
@@ -547,6 +577,7 @@ then
 ### RunTogether.SendFriendRequest
 
 Authored path: `RunTogether.SendFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
 
@@ -559,6 +590,7 @@ then
 ### RunTogether.SendFriendRequest#2
 
 Authored path: `RunTogether.SendFriendRequest`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 24.
 
@@ -573,6 +605,7 @@ then
 ### RunTogether.SetFlexibility
 
 Authored path: `RunTogether.SetFlexibility`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 8.
 
@@ -585,6 +618,7 @@ then
 ### RunTogether.SetFlexibility#2
 
 Authored path: `RunTogether.SetFlexibility`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 8.
 
@@ -599,6 +633,7 @@ then
 ### RunTogether.SuggestChange
 
 Authored path: `RunTogether.SuggestChange`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
 
@@ -611,6 +646,7 @@ then
 ### RunTogether.SuggestChange#2
 
 Authored path: `RunTogether.SuggestChange`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 35.
 
@@ -625,6 +661,7 @@ then
 ### RunTogether.UpdateRun
 
 Authored path: `RunTogether.UpdateRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 7.
 
@@ -637,6 +674,7 @@ then
 ### RunTogether.UpdateRun#2
 
 Authored path: `RunTogether.UpdateRun`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 3.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 7.
 
@@ -651,6 +689,7 @@ then
 ### RunTogether.WithdrawSuggestion
 
 Authored path: `RunTogether.WithdrawSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 38.
 
@@ -663,6 +702,7 @@ then
 ### RunTogether.WithdrawSuggestion#2
 
 Authored path: `RunTogether.WithdrawSuggestion`.
+
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 32.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 38.
 
