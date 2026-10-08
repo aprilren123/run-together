@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { Home, CalendarDays, Users, User } from "lucide-vue-next";
-import { computed } from "vue";
 
 interface Run {
   run: string;
@@ -12,10 +11,93 @@ interface Run {
   location: string;
 }
 
+interface Friendship {
+  friendship: string;
+  user1: string;
+  user2: string;
+}
+
 const currentUser = ref("Jamie");
-const currentPage = ref<"home" | "create">("home");
+const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar">("home");
 
 const runs = ref<Run[]>([]);
+const friendships = ref<Friendship[]>([]);
+const friendName = ref("");
+const friendError = ref("");
+const friendMessage = ref("");
+
+const myFriends = computed(() =>
+  friendships.value
+    .filter(({ user1, user2 }) =>
+      user1 === currentUser.value || user2 === currentUser.value,
+    )
+    .map(({ user1, user2 }) =>
+      user1 === currentUser.value ? user2 : user1,
+    ),
+);
+
+// Home shows only runs belonging to the selected user or accepted friends.
+const visibleRuns = computed(() =>
+  runs.value.filter(
+    (run) => run.owner === currentUser.value || myFriends.value.includes(run.owner),
+  ),
+);
+
+async function loadFriends() {
+  friendError.value = "";
+  try {
+    const response = await fetch("/api/friends/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error ?? "Could not load friends.");
+    }
+    friendships.value = data.friends.friendships;
+  } catch (error) {
+    friendError.value = error instanceof Error ? error.message : "Could not load friends.";
+  }
+}
+
+async function openFriends() {
+  currentPage.value = "profile";
+  friendMessage.value = "";
+  await loadFriends();
+}
+
+async function sendFriendRequest() {
+  friendError.value = "";
+  friendMessage.value = "";
+  const recipient = friendName.value.trim();
+  if (!recipient || recipient === currentUser.value) {
+    friendError.value = "Enter another user's name.";
+    return;
+  }
+  try {
+    const response = await fetch("/api/friends/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sender: currentUser.value, recipient }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error ?? "Could not send friend request.");
+    }
+    friendMessage.value = `Friend request sent to ${recipient}.`;
+    friendName.value = "";
+  } catch (error) {
+    friendError.value = error instanceof Error ? error.message : "Could not send friend request.";
+  }
+}
+
+watch(currentUser, () => {
+  friendMessage.value = "";
+  friendError.value = "";
+  friendName.value = "";
+  if (currentPage.value === "profile") void loadFriends();
+});
 
 const startTime = ref("");
 const distance = ref<number | null>(null);
@@ -170,7 +252,9 @@ async function createRun() {
   }
 }
 
-onMounted(loadRuns);
+onMounted(async () => {
+  await Promise.all([loadRuns(), loadFriends()]);
+});
 </script>
 
 <template>
@@ -197,12 +281,12 @@ onMounted(loadRuns);
 
     <h2>Upcoming Runs</h2>
 
-    <p v-if="runs.length === 0">
+    <p v-if="visibleRuns.length === 0">
       No upcoming runs.
     </p>
 
     <ul v-else>
-      <li v-for="run in runs" :key="run.run">
+      <li v-for="run in visibleRuns" :key="run.run">
         <strong>{{ run.owner }}</strong>
         is running {{ run.distance }} miles at {{ run.startTime }}
         along {{ run.location }}.
@@ -211,7 +295,7 @@ onMounted(loadRuns);
   </main>
 
   <!-- Create run page -->
-  <main v-else class="create-page">
+  <main v-else-if="currentPage === 'create'" class="create-page">
     <div class="create-header">
       <button
         class="back-button"
@@ -364,24 +448,117 @@ onMounted(loadRuns);
     </form>
   </main>
 
-  <!-- Bottom navigation only appears on main pages -->
-  <nav v-if="currentPage === 'home'" class="bottom-nav">
-    <button class="nav-item active">
+  <!-- Community: public discovery needs visibility and location support in the backend -->
+  <main v-else-if="currentPage === 'community'" class="community-page">
+    <header>
+      <h1>Community</h1>
+      <label>
+        Viewing as:
+        <select v-model="currentUser">
+          <option>Jamie</option>
+          <option>Taylor</option>
+        </select>
+      </label>
+    </header>
+    <h2>Discover nearby runs</h2>
+    <p class="muted-text">
+      Public runs in your area will appear here once location-based discovery
+      and public-run visibility are supported.
+    </p>
+  </main>
+
+  <!-- Calendar placeholder -->
+  <main v-else-if="currentPage === 'calendar'" class="calendar-page">
+    <h1>Calendar</h1>
+    <p class="muted-text">Your scheduled runs will appear here.</p>
+  </main>
+
+  <!-- Profile, including friend management -->
+  <main v-else-if="currentPage === 'profile'" class="profile-page">
+    <header>
+      <h1>Profile</h1>
+      <label>
+        Viewing as:
+        <select v-model="currentUser">
+          <option>Jamie</option>
+          <option>Taylor</option>
+        </select>
+      </label>
+    </header>
+
+    <section class="profile-card">
+      <div class="profile-avatar">{{ currentUser.charAt(0) }}</div>
+      <div>
+        <h2 class="profile-name">{{ currentUser }}</h2>
+        <p class="muted-text">RunTogether member</p>
+      </div>
+    </section>
+
+    <section class="friends-section">
+      <h2>Friends</h2>
+      <h3>Add a friend</h3>
+      <form class="add-friend-form" @submit.prevent="sendFriendRequest">
+        <input
+          v-model="friendName"
+          type="text"
+          placeholder="Enter a friend's name"
+          aria-label="Friend's name"
+          required
+        />
+        <button class="create-run-button" type="submit">Send Request</button>
+      </form>
+      <p v-if="friendError" class="form-error">{{ friendError }}</p>
+      <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
+    </section>
+
+    <section class="friends-section">
+      <h3>Friend Requests</h3>
+      <p class="muted-text">Incoming requests will appear here once the pending-requests endpoint is added.</p>
+    </section>
+
+    <section class="friends-section">
+      <h3>My Friends</h3>
+      <p v-if="myFriends.length === 0" class="muted-text">No friends yet.</p>
+      <ul v-else class="friend-list">
+        <li v-for="friend in myFriends" :key="friend">{{ friend }}</li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- Bottom navigation -->
+  <nav v-if="currentPage !== 'create'" class="bottom-nav" aria-label="Main navigation">
+    <button
+      class="nav-item"
+      :class="{ active: currentPage === 'home' }"
+      @click="currentPage = 'home'"
+    >
       <Home class="nav-icon" />
       <span>Home</span>
     </button>
 
-    <button class="nav-item">
+    <button
+      class="nav-item"
+      :class="{ active: currentPage === 'calendar' }"
+      @click="currentPage = 'calendar'"
+    >
       <CalendarDays class="nav-icon" />
       <span>Calendar</span>
     </button>
 
-    <button class="nav-item">
+    <button
+      class="nav-item"
+      :class="{ active: currentPage === 'community' }"
+      @click="currentPage = 'community'"
+    >
       <Users class="nav-icon" />
-      <span>Friends</span>
+      <span>Community</span>
     </button>
 
-    <button class="nav-item">
+    <button
+      class="nav-item"
+      :class="{ active: currentPage === 'profile' }"
+      @click="openFriends"
+    >
       <User class="nav-icon" />
       <span>Profile</span>
     </button>
