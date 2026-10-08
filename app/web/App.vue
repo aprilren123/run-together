@@ -920,6 +920,7 @@ onMounted(async () => {
           <option>Jamie</option>
           <option>Taylor</option>
           <option>Morgan</option>
+          <option>Alice</option>
         </select>
         <p class="muted-text">For testing the two sides of a friend request.</p>
       </div>
