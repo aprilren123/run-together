@@ -264,6 +264,12 @@ export class RunPlanningConcept {
       run: _id,
       ...rest,
       details: rest.details ?? "",
+      earliestTime: rest.earliestTime ?? null,
+      latestTime: rest.latestTime ?? null,
+      minDistance: rest.minDistance ?? null,
+      maxDistance: rest.maxDistance ?? null,
+      minPace: rest.minPace ?? null,
+      maxPace: rest.maxPace ?? null,
     }));
   }
 }

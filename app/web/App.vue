@@ -796,7 +796,7 @@ onMounted(async () => {
       </button>
       <div class="demo-switch">
         <label for="demo-user">Switch demo user</label>
-        <select id="demo-user" v-model="currentUser"><option>Jamie</option><option>Taylor</option></select>
+        <select id="demo-user" v-model="currentUser"><option>Jamie</option><option>Taylor</option><option>Morgan</option></select>
         <p class="muted-text">For testing the two sides of a friend request.</p>
       </div>
     </template>
