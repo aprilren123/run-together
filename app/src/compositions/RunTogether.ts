@@ -246,6 +246,24 @@ const FriendList = former(
     }),
 );
 
+const FriendRequestList = former(
+    "the friend request list",
+    (_input, { request, sender, recipient }) =>
+      form({
+        requests: each(
+          Friending._requests({}).is({
+            request,
+            sender,
+            recipient,
+          }),
+        ).form({
+          request,
+          sender,
+          recipient,
+        }),
+      }),
+  );
+
 const SendFriendRequest = endpoint(
   "/friends/request",
   ({ sender, recipient, request }) =>
@@ -321,6 +339,12 @@ const RemoveFriend = endpoint(
 const ListFriends = endpoint("/friends/list", () =>
   receive({}).then(respond({ friends: FriendList({}) })),
 );
+
+const ListFriendRequests = endpoint("/friends/requests", () =>
+    receive({}).then(
+      respond({ requests: FriendRequestList({}) }),
+    ),
+  );
 
 // ---------- Suggestions ----------
 
@@ -496,6 +520,8 @@ export const composition = {
     RejectFriendRequest,
     RemoveFriend,
     ListFriends,
+    ListFriendRequests,
+    FriendRequestList,
   
     SuggestChange,
     AcceptSuggestion,

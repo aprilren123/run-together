@@ -49,3 +49,29 @@ h2 { margin-top: 32px; }
 .add-friend-form input { box-sizing: border-box; flex: 1; min-width: 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
 .friend-list { padding-left: 20px; }
 @media (max-width: 520px) { main { padding: 24px 16px; } header { flex-wrap: wrap; margin-bottom: 24px; } .add-friend-form { flex-direction: column; } .nav-item { font-size: 12px; } .nav-icon { width: 24px; height: 24px; } }
+
+/* Profile overview and friend management */
+.profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 22px 0 28px; }
+.stat-card { min-height: 112px; border: 1px solid #e0e7e2; border-radius: 16px; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; cursor: pointer; color: #202b25; }
+.stat-card strong { font-size: 28px; }
+.stat-card span { color: #777; font-size: 14px; }
+.stat-card:hover:not(.stat-static) { border-color: #3f8f63; background: #f7f9f7; }
+.stat-static { cursor: default; }
+.profile-menu-item { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 19px 6px; border: 0; border-bottom: 1px solid #e7ebe8; background: transparent; font-size: 16px; text-align: left; cursor: pointer; }
+.profile-menu-item:hover { color: #32734f; }
+.inline-icon { vertical-align: middle; margin-right: 8px; }
+.request-count { display: inline-block; padding: 2px 8px; border-radius: 20px; background: #dcefe2; color: #32734f; font-size: 12px; margin-left: 6px; }
+.demo-switch { margin-top: 32px; padding: 18px; border-radius: 12px; background: #f7f9f7; }
+.demo-switch label { display: block; font-weight: 600; margin-bottom: 10px; }
+.demo-switch select { padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+.demo-switch p { font-size: 13px; margin-bottom: 0; }
+.profile-page header { justify-content: flex-start; gap: 12px; }
+.profile-page .back-button { display: inline-flex; align-items: center; justify-content: center; }
+.friend-list { padding: 0; list-style: none; }
+.friend-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #e7ebe8; }
+.small-avatar { width: 38px; height: 38px; border-radius: 50%; background: #dcefe2; color: #32734f; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.request-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-bottom: 1px solid #e7ebe8; }
+.request-actions { display: flex; gap: 8px; }
+.secondary-button { padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; background: white; cursor: pointer; }
+.secondary-button:hover { background: #f5f5f5; }
+@media (max-width: 520px) { .request-row { align-items: flex-start; flex-direction: column; } }

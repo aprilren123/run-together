@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Home, CalendarDays, Users, User } from "lucide-vue-next";
+import { Home, CalendarDays, Users, User, ChevronRight, ArrowLeft, UserRoundPlus } from "lucide-vue-next";
 
 interface Run {
   run: string;
@@ -22,6 +22,9 @@ const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar"
 
 const runs = ref<Run[]>([]);
 const friendships = ref<Friendship[]>([]);
+interface FriendRequest { request: string; sender: string; recipient: string; }
+const requests = ref<FriendRequest[]>([]);
+const profileSection = ref<"overview" | "friends" | "requests" | "add">("overview");
 const friendName = ref("");
 const friendError = ref("");
 const friendMessage = ref("");
@@ -35,6 +38,9 @@ const myFriends = computed(() =>
       user1 === currentUser.value ? user2 : user1,
     ),
 );
+
+const incomingRequests = computed(() => requests.value.filter(r => r.recipient === currentUser.value));
+const outgoingRequests = computed(() => requests.value.filter(r => r.sender === currentUser.value));
 
 // Home shows only runs belonging to the selected user or accepted friends.
 const visibleRuns = computed(() =>
@@ -61,10 +67,45 @@ async function loadFriends() {
   }
 }
 
-async function openFriends() {
+async function loadRequests() {
+  try {
+    const response = await fetch("/api/friends/requests", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error ?? "Could not load requests.");
+    requests.value = data.requests.requests;
+  } catch (error) {
+    friendError.value = error instanceof Error ? error.message : "Could not load requests.";
+  }
+}
+
+async function refreshFriends() {
+  await Promise.all([loadFriends(), loadRequests()]);
+}
+
+async function openProfile() {
   currentPage.value = "profile";
+  profileSection.value = "overview";
   friendMessage.value = "";
-  await loadFriends();
+  await refreshFriends();
+}
+
+async function friendAction(action: "accept" | "reject", request: string) {
+  friendError.value = "";
+  friendMessage.value = "";
+  try {
+    const response = await fetch(`/api/friends/${action}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient: currentUser.value, request }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error ?? `Could not ${action} request.`);
+    await refreshFriends();
+    friendMessage.value = action === "accept" ? "Friend request accepted!" : "Friend request declined.";
+  } catch (error) {
+    friendError.value = error instanceof Error ? error.message : "Something went wrong.";
+  }
 }
 
 async function sendFriendRequest() {
@@ -87,6 +128,7 @@ async function sendFriendRequest() {
     }
     friendMessage.value = `Friend request sent to ${recipient}.`;
     friendName.value = "";
+    await loadRequests();
   } catch (error) {
     friendError.value = error instanceof Error ? error.message : "Could not send friend request.";
   }
@@ -96,7 +138,8 @@ watch(currentUser, () => {
   friendMessage.value = "";
   friendError.value = "";
   friendName.value = "";
-  if (currentPage.value === "profile") void loadFriends();
+  profileSection.value = "overview";
+  void refreshFriends();
 });
 
 const startTime = ref("");
@@ -253,7 +296,7 @@ async function createRun() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadRuns(), loadFriends()]);
+  await Promise.all([loadRuns(), refreshFriends()]);
 });
 </script>
 
@@ -263,13 +306,7 @@ onMounted(async () => {
     <header>
       <h1>RunTogether</h1>
 
-      <label>
-        Viewing as:
-        <select v-model="currentUser">
-          <option>Jamie</option>
-          <option>Taylor</option>
-        </select>
-      </label>
+
     </header>
 
     <button
@@ -452,13 +489,7 @@ onMounted(async () => {
   <main v-else-if="currentPage === 'community'" class="community-page">
     <header>
       <h1>Community</h1>
-      <label>
-        Viewing as:
-        <select v-model="currentUser">
-          <option>Jamie</option>
-          <option>Taylor</option>
-        </select>
-      </label>
+
     </header>
     <h2>Discover nearby runs</h2>
     <p class="muted-text">
@@ -473,55 +504,78 @@ onMounted(async () => {
     <p class="muted-text">Your scheduled runs will appear here.</p>
   </main>
 
-  <!-- Profile, including friend management -->
+  <!-- Profile and nested friend management screens -->
   <main v-else-if="currentPage === 'profile'" class="profile-page">
     <header>
-      <h1>Profile</h1>
-      <label>
-        Viewing as:
-        <select v-model="currentUser">
-          <option>Jamie</option>
-          <option>Taylor</option>
-        </select>
-      </label>
+      <button v-if="profileSection !== 'overview'" class="back-button" type="button" @click="profileSection = 'overview'" aria-label="Back to profile"><ArrowLeft :size="24" /></button>
+      <h1>{{ profileSection === 'overview' ? 'Profile' : profileSection === 'friends' ? 'Friends' : profileSection === 'requests' ? 'Friend Requests' : 'Add Friends' }}</h1>
     </header>
 
-    <section class="profile-card">
-      <div class="profile-avatar">{{ currentUser.charAt(0) }}</div>
-      <div>
-        <h2 class="profile-name">{{ currentUser }}</h2>
-        <p class="muted-text">RunTogether member</p>
+    <template v-if="profileSection === 'overview'">
+      <section class="profile-card">
+        <div class="profile-avatar">{{ currentUser.charAt(0) }}</div>
+        <div><h2 class="profile-name">{{ currentUser }}</h2><p class="muted-text">RunTogether member</p></div>
+      </section>
+
+      <div class="profile-stats">
+        <button class="stat-card" @click="profileSection = 'friends'">
+          <strong>{{ myFriends.length }}</strong>
+          <span>{{ myFriends.length === 1 ? 'Friend' : 'Friends' }}</span>
+          <ChevronRight :size="18" />
+        </button>
+        <div class="stat-card stat-static">
+          <strong>{{ runs.filter(r => r.owner === currentUser).length }}</strong>
+          <span>Runs planned</span>
+        </div>
       </div>
+
+      <button class="profile-menu-item" @click="profileSection = 'requests'">
+        <span>Friend Requests <span v-if="incomingRequests.length" class="request-count">{{ incomingRequests.length }}</span></span>
+        <ChevronRight :size="20" />
+      </button>
+      <button class="profile-menu-item" @click="profileSection = 'add'">
+        <span><UserRoundPlus :size="19" class="inline-icon" /> Add Friends</span>
+        <ChevronRight :size="20" />
+      </button>
+      <div class="demo-switch">
+        <label for="demo-user">Switch demo user</label>
+        <select id="demo-user" v-model="currentUser"><option>Jamie</option><option>Taylor</option></select>
+        <p class="muted-text">For testing the two sides of a friend request.</p>
+      </div>
+    </template>
+
+    <section v-else-if="profileSection === 'friends'" class="friends-section">
+      <p v-if="myFriends.length === 0" class="muted-text">No friends yet.</p>
+      <ul v-else class="friend-list">
+        <li v-for="friend in myFriends" :key="friend" class="friend-row"><span class="small-avatar">{{ friend.charAt(0) }}</span>{{ friend }}</li>
+      </ul>
     </section>
 
-    <section class="friends-section">
-      <h2>Friends</h2>
-      <h3>Add a friend</h3>
+    <section v-else-if="profileSection === 'requests'" class="friends-section">
+      <p v-if="friendError" class="form-error">{{ friendError }}</p>
+      <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
+      <h2>Incoming requests</h2>
+      <p v-if="incomingRequests.length === 0" class="muted-text">No pending requests.</p>
+      <div v-for="request in incomingRequests" :key="request.request" class="request-row">
+        <strong>{{ request.sender }}</strong>
+        <div class="request-actions">
+          <button class="create-run-button" @click="friendAction('accept', request.request)">Accept</button>
+          <button class="secondary-button" @click="friendAction('reject', request.request)">Decline</button>
+        </div>
+      </div>
+      <h2>Sent requests</h2>
+      <p v-if="outgoingRequests.length === 0" class="muted-text">No pending sent requests.</p>
+      <div v-for="request in outgoingRequests" :key="request.request" class="request-row">To {{ request.recipient }} · Pending</div>
+    </section>
+
+    <section v-else class="friends-section">
+      <h2>Send a friend request</h2>
       <form class="add-friend-form" @submit.prevent="sendFriendRequest">
-        <input
-          v-model="friendName"
-          type="text"
-          placeholder="Enter a friend's name"
-          aria-label="Friend's name"
-          required
-        />
+        <input v-model="friendName" type="text" placeholder="Enter a friend's name" aria-label="Friend's name" required />
         <button class="create-run-button" type="submit">Send Request</button>
       </form>
       <p v-if="friendError" class="form-error">{{ friendError }}</p>
       <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
-    </section>
-
-    <section class="friends-section">
-      <h3>Friend Requests</h3>
-      <p class="muted-text">Incoming requests will appear here once the pending-requests endpoint is added.</p>
-    </section>
-
-    <section class="friends-section">
-      <h3>My Friends</h3>
-      <p v-if="myFriends.length === 0" class="muted-text">No friends yet.</p>
-      <ul v-else class="friend-list">
-        <li v-for="friend in myFriends" :key="friend">{{ friend }}</li>
-      </ul>
     </section>
   </main>
 
@@ -557,7 +611,7 @@ onMounted(async () => {
     <button
       class="nav-item"
       :class="{ active: currentPage === 'profile' }"
-      @click="openFriends"
+      @click="openProfile"
     >
       <User class="nav-icon" />
       <span>Profile</span>
