@@ -30,6 +30,11 @@ import {
   FriendingConcept,
 } from "./concepts/Friending.ts";
 
+import { registering } from "./concepts/Registering/registry.ts";
+import { authenticating } from "./concepts/Authenticating/registry.ts";
+import { sessioning } from "./concepts/Sessioning/registry.ts";
+import { commonsFederating } from "./concepts/Federating/registry.ts";
+
 const runPlanning = registerConcept({
   class: RunPlanningConcept,
   spec: runPlanningSpec,
@@ -76,6 +81,11 @@ export const applicationConceptSet = conceptSet({
   Joining: joining,
   ChangeSuggesting: changeSuggesting,
   Friending: friending,
+
+  Registering: registering,
+  Authenticating: authenticating,
+  Sessioning: sessioning,
+  CommonsFederating: commonsFederating,
 });
 
 export const { concepts } = applicationConceptSet;

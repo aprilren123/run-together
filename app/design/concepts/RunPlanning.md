@@ -84,6 +84,6 @@ cancel(owner: User, run: Run) : returns (run: Run)
 ## Queries
 
 ```queries
-_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number)
-  Answers every run, and no rows when there are none.
+_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime: String, latestTime: String, minDistance: Number, maxDistance: Number, minPace: Number, maxPace: Number)
+  Answers every run, and no rows when there are none. Each flexibility value the owner hasn't set is null.
 ```

@@ -358,27 +358,6 @@ h2 {
   font-size: 12px;
   margin-left: 6px;
 }
-.demo-switch {
-  margin-top: 32px;
-  padding: 18px;
-  border-radius: 12px;
-  background: #f7f9f7;
-}
-.demo-switch label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-.demo-switch select {
-  padding: 9px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background: #fff;
-}
-.demo-switch p {
-  font-size: 13px;
-  margin-bottom: 0;
-}
 .profile-page header {
   justify-content: flex-start;
   gap: 12px;
@@ -776,4 +755,142 @@ h2 {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Signing in */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px);
+  max-width: none;
+}
+.auth-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+  border: 1px solid #e3e8e5;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 8px 24px rgba(32, 43, 37, 0.08);
+}
+.auth-card h1 {
+  margin: 0 0 6px;
+  color: #3f8f63;
+}
+.auth-card .form-error {
+  margin: 0;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+}
+.auth-form input {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+}
+.auth-form .field-hint {
+  font-weight: 400;
+}
+.auth-form .create-run-button:disabled,
+.commons-button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+}
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  color: #66736c;
+}
+.text-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #3f8f63;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: #66736c;
+  font-size: 14px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #e3e8e5;
+}
+/* Commons' orange, a shade darker so the light text has enough contrast (from ConceptBox). */
+.commons-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #b44900;
+  color: #fefcf4;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.commons-button:hover:not(:disabled) {
+  background: #a03f00;
+}
+.commons-button svg {
+  border-radius: 7px;
+  box-shadow: 0 0 0 1.5px rgba(254, 252, 244, 0.35);
+}
+.auth-waiting {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-name {
+  font-weight: 600;
+}
+.account-chip .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Find friends */
+.search-results {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.search-result-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
 }

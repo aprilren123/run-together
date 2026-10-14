@@ -11,7 +11,9 @@ import {
   MapPin,
   Clock3,
   Route,
+  LogOut,
 } from "lucide-vue-next";
+import { useSession } from "./auth/session.ts";
 
 interface Run {
   run: string;
@@ -35,7 +37,23 @@ interface Friendship {
   user2: string;
 }
 
-const currentUser = ref("Jamie");
+// The signed-in username. The backend acts as the session's user, so requests never name who is acting.
+const { me, error: sessionError, signOut, sessionEnded } = useSession();
+const signedInAs = me.value?.username ?? "";
+const currentUser = computed(() => signedInAs);
+const signingOut = ref(false);
+
+/** Calls the API with the session cookie, and shows the sign-in screen when the session has ended. */
+async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, init);
+  if (response.status === 401) sessionEnded();
+  return response;
+}
+async function logOut() {
+  signingOut.value = true;
+  await signOut();
+  signingOut.value = false;
+}
 const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar" | "run-details">(
   "home",
 );
@@ -70,7 +88,7 @@ function isFlexible(run: Run): boolean {
 async function loadParticipants() {
   runDetailsError.value = "";
   try {
-    const response = await fetch("/api/runs/participants", {
+    const response = await apiFetch("/api/runs/participants", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
@@ -121,7 +139,7 @@ const suggestionTimeError = computed(() => {
   return "";
 });
 async function postAction(path: string, body: Record<string, string>) {
-  const response = await fetch(`/api/${path}`, {
+  const response = await apiFetch(`/api/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -151,8 +169,6 @@ async function sendSuggestion() {
   runActionBusy.value = true;
   try {
     await postAction("suggestions/create", {
-      suggester: currentUser.value,
-      decider: selectedRun.value.owner,
       event: selectedRun.value.run,
       change: suggestedTime.value,
     });
@@ -170,7 +186,7 @@ async function joinSelectedRun() {
   runActionBusy.value = true;
   runDetailsError.value = "";
   try {
-    await postAction("runs/join", { user: currentUser.value, event: selectedRun.value.run });
+    await postAction("runs/join", { event: selectedRun.value.run });
     await loadParticipants();
     runActionMessage.value = "You joined this run!";
   } catch (error) {
@@ -184,13 +200,17 @@ async function decideSuggestion(suggestion: string, action: "accept" | "reject")
   runActionBusy.value = true;
   runDetailsError.value = "";
   try {
-    await postAction(`suggestions/${action}`, { decider: currentUser.value, suggestion });
+    await postAction(`suggestions/${action}`, { suggestion });
     await Promise.all([loadSuggestions(), loadRuns(), loadParticipants()]);
     runActionMessage.value =
       action === "accept" ? "Suggestion accepted. Run updated." : "Suggestion rejected.";
   } catch (error) {
     runDetailsError.value =
-      error instanceof Error ? error.message : "Could not process suggestion.";
+      error instanceof Error && error.message === "FORBIDDEN"
+        ? "You're no longer friends with this runner, so their suggestion can't be accepted."
+        : error instanceof Error
+          ? error.message
+          : "Could not process suggestion.";
   } finally {
     runActionBusy.value = false;
   }
@@ -262,7 +282,7 @@ function mapsUrl(meetingPoint: string): string {
 async function loadFriends() {
   friendError.value = "";
   try {
-    const response = await fetch("/api/friends/list", {
+    const response = await apiFetch("/api/friends/list", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -279,7 +299,7 @@ async function loadFriends() {
 
 async function loadRequests() {
   try {
-    const response = await fetch("/api/friends/requests", {
+    const response = await apiFetch("/api/friends/requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -307,10 +327,10 @@ async function friendAction(action: "accept" | "reject", request: string) {
   friendError.value = "";
   friendMessage.value = "";
   try {
-    const response = await fetch(`/api/friends/${action}`, {
+    const response = await apiFetch(`/api/friends/${action}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipient: currentUser.value, request }),
+      body: JSON.stringify({ request }),
     });
     const data = await response.json();
     if (!response.ok || data.error) throw new Error(data.error ?? `Could not ${action} request.`);
@@ -322,39 +342,87 @@ async function friendAction(action: "accept" | "reject", request: string) {
   }
 }
 
-async function sendFriendRequest() {
+// Find friends: search registered usernames. The search answers usernames only; whether each person is
+// already a friend or has a pending request comes from the signed-in user's own friend and request lists.
+const MIN_SEARCH = 2;
+const searchResults = ref<string[]>([]);
+const searchedFor = ref("");
+const searching = ref(false);
+let searches = 0;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function searchPeople() {
+  clearTimeout(searchTimer);
+  const text = friendName.value.trim();
+  const search = ++searches;
+  friendError.value = "";
+  if (text.length < MIN_SEARCH) {
+    searchResults.value = [];
+    searchedFor.value = "";
+    return;
+  }
+  searching.value = true;
+  try {
+    const response = await apiFetch("/api/friends/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error ?? "Could not search.");
+    if (search !== searches) return;
+    searchResults.value = (data.people as { username: string }[]).map((person) => person.username);
+    searchedFor.value = text;
+  } catch (error) {
+    if (search === searches) {
+      friendError.value = error instanceof Error ? error.message : "Could not search.";
+    }
+  } finally {
+    if (search === searches) searching.value = false;
+  }
+}
+
+watch(friendName, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(searchPeople, 250);
+});
+
+function friendState(username: string): "friends" | "requested" | "incoming" | "none" {
+  if (myFriends.value.includes(username)) return "friends";
+  if (outgoingRequests.value.some((r) => r.recipient === username)) return "requested";
+  if (incomingRequests.value.some((r) => r.sender === username)) return "incoming";
+  return "none";
+}
+
+function incomingRequestFrom(username: string): string {
+  return incomingRequests.value.find((r) => r.sender === username)?.request ?? "";
+}
+
+async function sendFriendRequest(username: string) {
   friendError.value = "";
   friendMessage.value = "";
-  const recipient = friendName.value.trim();
+  const recipient = username.trim();
   if (!recipient || recipient === currentUser.value) {
     friendError.value = "Enter another user's name.";
     return;
   }
   try {
-    const response = await fetch("/api/friends/request", {
+    const response = await apiFetch("/api/friends/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sender: currentUser.value, recipient }),
+      body: JSON.stringify({ username: recipient }),
     });
     const data = await response.json();
+    if (data.error === "NOT_FOUND") throw new Error(`Nobody has the username ${recipient}.`);
     if (!response.ok || data.error) {
       throw new Error(data.error ?? "Could not send friend request.");
     }
     friendMessage.value = `Friend request sent to ${recipient}.`;
-    friendName.value = "";
     await loadRequests();
   } catch (error) {
     friendError.value = error instanceof Error ? error.message : "Could not send friend request.";
   }
 }
-
-watch(currentUser, () => {
-  friendMessage.value = "";
-  friendError.value = "";
-  friendName.value = "";
-  profileSection.value = "overview";
-  void refreshFriends();
-});
 
 const startTime = ref("");
 const distance = ref<number | null>(null);
@@ -413,7 +481,7 @@ const flexibilityError = computed(() => {
 });
 
 async function loadRuns() {
-  const response = await fetch("/api/runs/list", {
+  const response = await apiFetch("/api/runs/list", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -437,13 +505,12 @@ async function createRun() {
   errorMessage.value = "";
 
   try {
-    const response = await fetch("/api/runs/create", {
+    const response = await apiFetch("/api/runs/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        owner: currentUser.value,
         startTime: startTime.value,
         distance: distance.value,
         pace: pace.value,
@@ -459,13 +526,12 @@ async function createRun() {
     }
 
     if (hasFlexibility.value) {
-      const flexibilityResponse = await fetch("/api/runs/flexibility", {
+      const flexibilityResponse = await apiFetch("/api/runs/flexibility", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          owner: currentUser.value,
           run: data.run,
           earliestTime: earliestTime.value ? `${runDate.value}T${earliestTime.value}` : null,
 
@@ -517,7 +583,15 @@ onMounted(async () => {
   <main v-if="currentPage === 'home'">
     <header>
       <h1>RunTogether</h1>
+      <div class="account-chip">
+        <span class="small-avatar">{{ signedInAs.charAt(0).toUpperCase() }}</span>
+        <span class="account-name" data-testid="signed-in-username">{{ signedInAs }}</span>
+        <button class="secondary-button" type="button" :disabled="signingOut" @click="logOut">
+          <LogOut :size="16" class="inline-icon" /> Log out
+        </button>
+      </div>
     </header>
+    <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
 
     <div class="home-heading">
       <h2>Upcoming runs</h2>
@@ -914,17 +988,10 @@ onMounted(async () => {
         <span><UserRoundPlus :size="19" class="inline-icon" /> Add Friends</span>
         <ChevronRight :size="20" />
       </button>
-      <div class="demo-switch">
-        <label for="demo-user">Switch demo user</label>
-        <select id="demo-user" v-model="currentUser">
-          <option>Jamie</option>
-          <option>Taylor</option>
-          <option>Morgan</option>
-          <option>Alice</option>
-          <option>Elaine</option>
-        </select>
-        <p class="muted-text">For testing the two sides of a friend request.</p>
-      </div>
+      <button class="profile-menu-item" type="button" :disabled="signingOut" @click="logOut">
+        <span><LogOut :size="19" class="inline-icon" /> Log out of {{ signedInAs }}</span>
+      </button>
+      <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
     </template>
 
     <section v-else-if="profileSection === 'friends'" class="friends-section">
@@ -961,19 +1028,63 @@ onMounted(async () => {
     </section>
 
     <section v-else class="friends-section">
-      <h2>Send a friend request</h2>
-      <form class="add-friend-form" @submit.prevent="sendFriendRequest">
+      <h2>Find friends</h2>
+      <form class="add-friend-form" role="search" @submit.prevent="searchPeople">
         <input
           v-model="friendName"
-          type="text"
-          placeholder="Enter a friend's name"
-          aria-label="Friend's name"
-          required
+          type="search"
+          placeholder="Search by username"
+          aria-label="Search by username"
+          autocapitalize="off"
+          spellcheck="false"
         />
-        <button class="create-run-button" type="submit">Send Request</button>
+        <button class="create-run-button" type="submit">Search</button>
       </form>
+      <p class="field-hint">Type at least {{ MIN_SEARCH }} letters of a username.</p>
       <p v-if="friendError" class="form-error">{{ friendError }}</p>
       <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
+      <p v-if="searching" class="muted-text" role="status">Searching…</p>
+      <p v-else-if="searchedFor && searchResults.length === 0" class="muted-text">
+        No one's username contains “{{ searchedFor }}”.
+      </p>
+      <ul v-if="searchResults.length" class="search-results" aria-label="Search results">
+        <li
+          v-for="name in searchResults"
+          :key="name"
+          class="request-row search-result"
+          :data-username="name"
+        >
+          <span class="search-result-name"
+            ><span class="small-avatar">{{ name.charAt(0).toUpperCase() }}</span
+            >{{ name }}</span
+          >
+          <span v-if="friendState(name) === 'friends'" class="flex-badge flexible"
+            >Already friends</span
+          >
+          <span v-else-if="friendState(name) === 'requested'" class="flex-badge fixed"
+            >Requested</span
+          >
+          <div v-else-if="friendState(name) === 'incoming'" class="request-actions">
+            <button
+              class="create-run-button"
+              type="button"
+              @click="friendAction('accept', incomingRequestFrom(name))"
+            >
+              Accept
+            </button>
+            <button
+              class="secondary-button"
+              type="button"
+              @click="friendAction('reject', incomingRequestFrom(name))"
+            >
+              Decline
+            </button>
+          </div>
+          <button v-else class="create-run-button" type="button" @click="sendFriendRequest(name)">
+            Add Friend
+          </button>
+        </li>
+      </ul>
     </section>
   </main>
 
