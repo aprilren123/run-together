@@ -20,6 +20,9 @@ A social running app that makes it easier for friends to turn the runs they are 
 ### P3
 
 - [Visual Design Study](p3/visual-design.md)
+- [Saved Test Execution Output](p3/test-results.txt)
+- [Updated User Journey](p3/updated-user-journey.md)
+- [Automated Test Results](p3/test-results.txt)
 
 ## Testing
 
@@ -64,7 +67,7 @@ bun run test -t "its principle"                 # each concept's operational pri
 
 ```bash
 bun run check:design   # the concept specifications, types, and composition documents
-bun run check          # concept specs vs. implementations, generated artifacts, and TypeScript
+bun run check          # concept specs vs. implementations, generated artifacts, and type checking (tsc --noEmit)
 ```
 
 ### Test organization
@@ -73,12 +76,12 @@ bun run check          # concept specs vs. implementations, generated artifacts,
 |---|---|
 | `app/tests/concepts/` | One file per concept: Registering, Authenticating, Sessioning, Federating (plus its Commons provider), RunPlanning, Joining, Friending, ChangeSuggesting, and Notifying. Each file has a test of the operational principle, further scenarios (repeated actions, updates, cancellations, removals, several records at once, simultaneous requests), and refusals that check the exact error and that nothing changed. Every action and query of every concept is executed in its own file. |
 | `app/tests/http/` | The compositions through the real HTTP handler: sign-in and sessions, authorization (who may see, join, edit, cancel, suggest, and decide), friend discovery, multi-field suggestions, and notifications |
-| `app/tests/web/`, `app/tests/runChange.test.ts` | Frontend logic (session handling, run lists, suggestion and notification text) and the RunChange reader |
+| `app/tests/web/`, `app/tests/runChange.test.ts`, `app/tests/frontend.test.ts` | Frontend logic (session handling, run lists, suggestion and notification text), the RunChange reader, and how the production server serves the built pages |
 | `app/tests/browser/` | Scripts that drive the app in headless Chrome. These aren't `bun test` files, because they need running servers. |
 
 ### Test databases
 
-The automated tests never touch the app's `myapp` database. `tests/support/setup.ts`, preloaded through `bunfig.toml`, points each test at a fresh database named `runtogether-test-<pid>-<n>` on the same MongoDB server (or the server in `TEST_MONGODB_URL`), and drops all of them when the run ends.
+The tests use the real local MongoDB, not an in-memory one, so start it first with `bun run db:up`. They never touch the app's `myapp` database: `tests/support/setup.ts`, preloaded through `bunfig.toml`, points each test at a fresh database named `runtogether-test-<pid>-<n>` on the same MongoDB server (or the server in `TEST_MONGODB_URL`), and drops all of them when the run ends.
 
 ### Running the browser tests
 
@@ -119,10 +122,10 @@ Each script prints one PASS or FAIL line per check, ends with a summary, and exi
 From [`p3/test-results.txt`](p3/test-results.txt), run on October 14, 2026:
 
 - `bun run check:design` and `bun run check`: passed
-- `bun run test`: **194 tests in 21 files, 194 passed, 0 failed**
+- `bun run test`: **200 tests in 22 files, 200 passed, 0 failed**
   - 83 concept tests (10 files)
   - 79 HTTP integration tests (7 files)
-  - 32 other unit tests (4 files)
+  - 38 other unit tests (5 files)
 - Chrome: discovery 20/20, then 5/5 after a backend restart; journey 65/65; sign-in 38/38; Profile 46/46
 
 The log also includes a table of which test covers each concept action and refusal, and the bugs these tests found.
