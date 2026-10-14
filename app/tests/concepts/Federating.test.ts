@@ -19,7 +19,12 @@ async function setup() {
   let now = new Date("2026-10-07T12:00:00Z");
   const provider = new MemoryProvider();
   const redeem = spyOn(provider, "redeem");
-  const federating = new FederatingConcept<string>(await testDatabase(), provider, "Federating", () => now);
+  const federating = new FederatingConcept<string>(
+    await testDatabase(),
+    provider,
+    "Federating",
+    () => now,
+  );
 
   /** Starts an attempt and approves it on the other site as `identity`, the way a browser does: returns what finish takes. */
   async function approved(identity = SAM) {
@@ -46,7 +51,9 @@ describe("Federating", () => {
     const first = await approved(SAM);
     expect(await federating.finish(first)).toEqual({ username: "sam" });
     expect(await federating._user(first)).toEqual([]);
-    expect(await federating.link({ attempt: first.attempt, user: "sam-user" })).toEqual({ user: "sam-user" });
+    expect(await federating.link({ attempt: first.attempt, user: "sam-user" })).toEqual({
+      user: "sam-user",
+    });
     expect(await federating._user(first)).toEqual([{ user: "sam-user" }]);
 
     const again = await approved({ subject: SAM.subject, username: "samuel" });
@@ -66,7 +73,9 @@ describe("Federating", () => {
     const leosOwn = await approved(LEO);
     const replayed = federating.finish({ ...leosOwn, code: samsCode.code });
     await expect(replayed).rejects.toThrow(SignInRefused);
-    await expect(replayed).rejects.toThrow("The other site didn't confirm this sign-in. Start again.");
+    await expect(replayed).rejects.toThrow(
+      "The other site didn't confirm this sign-in. Start again.",
+    );
   });
 
   test("start returns an address carrying a fresh nonce and challenge in the forms Commons accepts, and an attempt that expires in 10 minutes", async () => {
@@ -89,9 +98,13 @@ describe("Federating", () => {
 
     const sams = await approved();
     for (const attempt of [null, "unknown"]) {
-      await expect(federating.finish({ ...sams, attempt: attempt as Attempt })).rejects.toThrow(SignInExpired);
+      await expect(federating.finish({ ...sams, attempt: attempt as Attempt })).rejects.toThrow(
+        SignInExpired,
+      );
     }
-    await expect(federating.finish({ ...sams, nonce: "another-nonce-123456" })).rejects.toThrow(SignInExpired);
+    await expect(federating.finish({ ...sams, nonce: "another-nonce-123456" })).rejects.toThrow(
+      SignInExpired,
+    );
 
     const late = await approved();
     advance(10 * MINUTE);
@@ -109,9 +122,13 @@ describe("Federating", () => {
     const sams = await approved();
     const refused = federating.finish({ ...sams, code: "a-code-nobody-issued" });
     await expect(refused).rejects.toThrow(SignInRefused);
-    await expect(refused).rejects.toThrow("The other site didn't confirm this sign-in. Start again.");
+    await expect(refused).rejects.toThrow(
+      "The other site didn't confirm this sign-in. Start again.",
+    );
     expect(await federating._linkable(sams)).toEqual({ linkable: false });
-    await expect(federating.link({ attempt: sams.attempt, user: "sam-user" })).rejects.toThrow(NotConfirmed);
+    await expect(federating.link({ attempt: sams.attempt, user: "sam-user" })).rejects.toThrow(
+      NotConfirmed,
+    );
   });
 
   test("of two finishes of one attempt at once, one confirms it and the other is refused", async () => {
@@ -155,11 +172,29 @@ describe("Federating", () => {
 
     advance(10 * MINUTE);
     expect(await federating._linkable(sams)).toEqual({ linkable: false });
-    expect(await federating.link({ attempt: sams.attempt, user: "sam-user" })).toEqual({ user: "sam-user" });
+    expect(await federating.link({ attempt: sams.attempt, user: "sam-user" })).toEqual({
+      user: "sam-user",
+    });
 
     const again = await approved();
     await federating.finish(again);
     expect(await federating._linkable(again)).toEqual({ linkable: false });
-    expect(await federating._linkable({ attempt: "unknown" as Attempt })).toEqual({ linkable: false });
+    expect(await federating._linkable({ attempt: "unknown" as Attempt })).toEqual({
+      linkable: false,
+    });
+  });
+
+  test("a link refused as NOT_CONFIRMED doesn't use up the attempt: once finished, it links", async () => {
+    const { federating, provider } = await setup();
+    const { attempt, address } = await federating.start();
+    await expect(federating.link({ attempt, user: "sam-user" })).rejects.toThrow(NotConfirmed);
+    expect(await federating._user({ attempt })).toEqual([]);
+    expect(await federating._linkable({ attempt })).toEqual({ linkable: false });
+
+    const { code, state } = provider.approve(address, SAM);
+    expect(await federating.finish({ attempt, nonce: state, code })).toEqual({ username: "sam" });
+    expect(await federating._linkable({ attempt })).toEqual({ linkable: true });
+    expect(await federating.link({ attempt, user: "sam-user" })).toEqual({ user: "sam-user" });
+    expect(await federating._user({ attempt })).toEqual([{ user: "sam-user" }]);
   });
 });

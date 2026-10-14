@@ -59,12 +59,16 @@ export class RegisteringConcept {
     return found === null ? [] : [{ username: found.username }];
   }
 
-  /** Up to 10 users whose username contains `text`, ignoring case, so people can find each other without listing everyone. */
+  /**
+   * Up to 10 users whose username contains `text`, ignoring case, so people can find each other without
+   * listing everyone. Empty text answers the first 10 users, so a new person sees who else is here.
+   */
   async _search({ text }: { text: string }) {
-    if (typeof text !== "string" || text.length < MIN_SEARCH || text.length > 32) return [];
+    if (typeof text !== "string" || text.length > 32) return [];
+    if (text.length > 0 && text.length < MIN_SEARCH) return [];
     const pattern = new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     const found = await this.users
-      .find({ username: pattern })
+      .find(text ? { username: pattern } : {})
       // Alphabetical, ignoring case, so `Mayra` sorts between `maya` and `morgan`.
       .collation({ locale: "en", strength: 2 })
       .sort({ username: 1 })

@@ -257,7 +257,11 @@ describe("Only accepted friends can join a run or suggest a change", () => {
     }
     expect((await morgan.post("/runs/update", { run, distance: 6 })).status).toBe(200);
     expect((await morgan.post("/runs/cancel", { run })).status).toBe(200);
-    expect(await runIds(jamie)).not.toContain(run);
+    // A canceled run stays visible to the owner's friends, marked canceled.
+    const canceled = (
+      (await jamie.post("/runs/list")).body.runs.runs as { run: string; status: string }[]
+    ).find((each) => each.run === run);
+    expect(canceled?.status).toBe("CANCELED");
   });
 });
 

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { NotSignedIn, type Session, SessioningConcept } from "../../src/concepts/Sessioning/Sessioning.ts";
+import {
+  NotSignedIn,
+  type Session,
+  SessioningConcept,
+} from "../../src/concepts/Sessioning/Sessioning.ts";
 import { testDatabase } from "../support/mongo.ts";
 import { expectOneWinner } from "../support/race.ts";
 
@@ -14,7 +18,12 @@ async function setup() {
   let now = started;
   const clock = () => now;
   const advance = (milliseconds: number) => (now = new Date(now.getTime() + milliseconds));
-  return { sessioning: new SessioningConcept(database, "Sessioning", clock), database, started, advance };
+  return {
+    sessioning: new SessioningConcept(database, "Sessioning", clock),
+    database,
+    started,
+    advance,
+  };
 }
 
 describe("Sessioning", () => {
@@ -60,7 +69,9 @@ describe("Sessioning", () => {
 
     advance(MINUTE);
     await sessioning.use({ session });
-    expect((await sessions.findOne({ _id: session }))?.lastUsed).toEqual(new Date(started.getTime() + MINUTE));
+    expect((await sessions.findOne({ _id: session }))?.lastUsed).toEqual(
+      new Date(started.getTime() + MINUTE),
+    );
 
     advance(7 * DAY - MINUTE);
     expect(await sessioning.use({ session })).toEqual({ subject: "maya" });

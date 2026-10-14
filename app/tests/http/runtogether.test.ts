@@ -284,7 +284,7 @@ describe("Signed-in users can do everything they're allowed to", () => {
     });
 
     expect((await morgan.post("/runs/cancel", { run })).status).toBe(200);
-    expect(await runById(morgan, run)).toBeUndefined();
+    expect(await runById(morgan, run)).toMatchObject({ status: "CANCELED", distance: 6 });
   });
 
   test("a friend joins and leaves a run as themselves, and can't join twice", async () => {

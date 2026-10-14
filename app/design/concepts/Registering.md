@@ -48,5 +48,5 @@ _username(user: User) : optional (username: String)
   Returns the user's username, or no row for an unknown user.
 
 _search(text: String) : many (user: User, username: String)
-  Returns up to 10 users whose username contains text, ignoring case, sorted alphabetically by username regardless of case, and no rows when text has fewer than 2 or more than 32 characters.
+  Returns up to 10 users whose username contains text, ignoring case, sorted alphabetically by username regardless of case. When text is empty, returns the first 10 users in that order, so people can see who else is registered before they know a name. No rows when text has 1 character or more than 32.
 ```

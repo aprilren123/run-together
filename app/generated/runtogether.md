@@ -26,8 +26,8 @@ Defined in [Authenticating](../design/concepts/Authenticating.md), line 1.
 
 #### Instances
 
-- `Authenticating` — instance of `Authenticating` — [Application types](../design/types.md), line 17.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 18.
+- `Authenticating` — instance of `Authenticating` — [Application types](../design/types.md), line 20.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 21.
 
 ### ChangeSuggesting
 
@@ -50,10 +50,10 @@ Defined in [ChangeSuggesting](../design/concepts/ChangeSuggesting.md), line 1.
 
 #### Instances
 
-- `ChangeSuggesting` — instance of `ChangeSuggesting` — [Application types](../design/types.md), line 33.
-  - `Change` is `RunChange` — [Application types](../design/types.md), line 36.
-  - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 35.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 34.
+- `ChangeSuggesting` — instance of `ChangeSuggesting` — [Application types](../design/types.md), line 36.
+  - `Change` is `RunChange` — [Application types](../design/types.md), line 39.
+  - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 38.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 37.
 
 ### Federating
 
@@ -76,8 +76,8 @@ Defined in [Federating](../design/concepts/Federating.md), line 1.
 
 #### Instances
 
-- `CommonsFederating` — instance of `Federating` — [Application types](../design/types.md), line 20.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 21.
+- `CommonsFederating` — instance of `Federating` — [Application types](../design/types.md), line 23.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 24.
 
 ### Friending
 
@@ -101,8 +101,8 @@ Defined in [Friending](../design/concepts/Friending.md), line 1.
 
 #### Instances
 
-- `Friending` — instance of `Friending` — [Application types](../design/types.md), line 38.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 39.
+- `Friending` — instance of `Friending` — [Application types](../design/types.md), line 41.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 42.
 
 ### Joining
 
@@ -121,9 +121,32 @@ Defined in [Joining](../design/concepts/Joining.md), line 1.
 
 #### Instances
 
-- `Joining` — instance of `Joining` — [Application types](../design/types.md), line 29.
-  - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 31.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 30.
+- `Joining` — instance of `Joining` — [Application types](../design/types.md), line 32.
+  - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 34.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 33.
+
+### Notifying
+
+Defined in [Notifying](../design/concepts/Notifying.md), line 1.
+
+#### Actions
+
+- `notify(recipient: Recipient, actor: Actor, subject: Subject, kind: Kind) : returns (notification: Notification)`
+- `markRead(recipient: Recipient, notification: Notification) : returns (notification: Notification)`
+  - Refuses `NOT_FOUND`: There is no such notification.
+- `markAllRead(recipient: Recipient) : returns (recipient: Recipient)`
+
+#### Queries
+
+- `_for(recipient: Recipient) : many (notification: Notification, actor: Actor, subject: Subject, kind: Kind, at: DateTime, read: Flag)`
+
+#### Instances
+
+- `Notifying` — instance of `Notifying` — [Application types](../design/types.md), line 44.
+  - `Actor` is `Registering.User` — [Application types](../design/types.md), line 46.
+  - `Kind` is `NotificationKind` — [Application types](../design/types.md), line 48.
+  - `Recipient` is `Registering.User` — [Application types](../design/types.md), line 45.
+  - `Subject` is `RunPlanning.Run` — [Application types](../design/types.md), line 47.
 
 ### Registering
 
@@ -143,7 +166,7 @@ Defined in [Registering](../design/concepts/Registering.md), line 1.
 
 #### Instances
 
-- `Registering` — instance of `Registering` — [Application types](../design/types.md), line 15.
+- `Registering` — instance of `Registering` — [Application types](../design/types.md), line 18.
 
 ### RunPlanning
 
@@ -153,23 +176,27 @@ Defined in [RunPlanning](../design/concepts/RunPlanning.md), line 1.
 
 - `create(owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String) : returns (run: Run)`
   - Refuses `INVALID_RUN`: The run details or flexibility ranges are invalid.
-- `update(owner: User, run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String) : returns (run: Run)`
+- `update(owner: User, run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String, details?: String) : returns (run: Run)`
   - Refuses `NOT_OWNER`: The run does not exist or does not belong to this user.
+  - Refuses `RUN_CANCELED`: This run has been canceled.
   - Refuses `INVALID_RUN`: The updated run details are invalid.
 - `setFlexibility(owner: User, run: Run, earliestTime?: String, latestTime?: String, minDistance?: Number, maxDistance?: Number, minPace?: Number, maxPace?: Number) : returns (run: Run)`
   - Refuses `NOT_OWNER`: The run does not exist or does not belong to this user.
+  - Refuses `RUN_CANCELED`: This run has been canceled.
   - Refuses `INVALID_FLEXIBILITY`: The flexibility ranges are invalid.
 - `cancel(owner: User, run: Run) : returns (run: Run)`
   - Refuses `NOT_OWNER`: The run does not exist or does not belong to this user.
+  - Refuses `RUN_CANCELED`: This run has been canceled.
 
 #### Queries
 
-- `_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime: String, latestTime: String, minDistance: Number, maxDistance: Number, minPace: Number, maxPace: Number)`
+- `_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime: String, latestTime: String, minDistance: Number, maxDistance: Number, minPace: Number, maxPace: Number, status: RunStatus)`
+- `_fits(run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String, details?: String) : one (fits: Flag)`
 
 #### Instances
 
-- `RunPlanning` — instance of `RunPlanning` — [Application types](../design/types.md), line 26.
-  - `User` is `Registering.User` — [Application types](../design/types.md), line 27.
+- `RunPlanning` — instance of `RunPlanning` — [Application types](../design/types.md), line 29.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 30.
 
 ### Sessioning
 
@@ -185,14 +212,19 @@ Defined in [Sessioning](../design/concepts/Sessioning.md), line 1.
 
 #### Instances
 
-- `Sessioning` — instance of `Sessioning` — [Application types](../design/types.md), line 23.
-  - `Subject` is `Registering.User` — [Application types](../design/types.md), line 24.
+- `Sessioning` — instance of `Sessioning` — [Application types](../design/types.md), line 26.
+  - `Subject` is `Registering.User` — [Application types](../design/types.md), line 27.
 
 ## Application types
 
 Concrete types:
 
+- `NotificationKind` — [Application types](../design/types.md), line 13.
 - `RunChange` — [Application types](../design/types.md), line 10.
+
+## Computations
+
+- `readRunChange(change: RunChange) : RunChange` — [RunTogether](../design/compositions/RunTogether.md), line 50.
 
 ## Views
 
@@ -207,6 +239,18 @@ Authored path: `RunTogether.friends`.
 (user) is friends with (other) — inputs (user, other); outputs (); bindings ()
   where Friending._friendships () has (user1: user, user2: other)
   where Friending._friendships () has (user1: other, user2: user)
+```
+
+### (user) is a friend of the owner of (run)
+
+Authored path: `RunTogether.friendsRun`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
+
+```view
+(user) is a friend of the owner of (run) — inputs (user, run); outputs (); bindings (owner)
+  where
+    RunPlanning._all () has (owner, run)
+    view "(user) is friends with (other)" with (other: owner, user)
 ```
 
 ### (user) is in (friendship)
@@ -231,6 +275,16 @@ Authored path: `RunTogether.partyTo`.
   where ChangeSuggesting._all () has (decider: user, suggestion)
 ```
 
+### (user) joined (run)
+
+Authored path: `RunTogether.joined`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
+
+```view
+(user) joined (run) — inputs (user, run); outputs (); bindings ()
+  where Joining._all () has (event: run, user)
+```
+
 ### (user) sent or received (request)
 
 Authored path: `RunTogether.inRequest`.
@@ -253,6 +307,27 @@ Authored path: `RunTogether.canSee`.
   where
     RunPlanning._all () has (owner, run)
     view "(user) is friends with (other)" with (other: owner, user: viewer)
+  where view "(user) joined (run)" with (run, user: viewer)
+```
+
+### the owner and status of (run)
+
+Authored path: `RunTogether.runInfo`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
+
+```view
+the owner and status of (run) — inputs (run); outputs (owner, status); bindings () — answers any number of (owner, status)
+  where RunPlanning._all () has (owner, run, status)
+```
+
+### the people and run of (suggestion)
+
+Authored path: `RunTogether.suggestionInfo`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
+
+```view
+the people and run of (suggestion) — inputs (suggestion); outputs (suggester, decider, event, change); bindings () — answers any number of (suggester, decider, event, change)
+  where ChangeSuggesting._all () has (change, decider, event, suggester, suggestion)
 ```
 
 ## Formers
@@ -296,19 +371,40 @@ Former "the friend request list for (user)" — inputs (user); bindings (request
         sender: senderName
 ```
 
+### the notifications of (user)
+
+Authored path: `notifications.reading.NotificationList`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+
+```former
+Former "the notifications of (user)" — inputs (user); bindings (notification, actor, actorName, subject, kind, at, read, startTime); promises exactly one record — forms:
+  a record of
+    notifications: each Notifying._for (recipient: user) has (actor, at, kind, notification, read, subject)
+      where Registering._username (user: actor) has (username: actorName)
+      where whether RunPlanning._all () has (run: subject, startTime)
+      form a record of
+        actor: actorName
+        at
+        kind
+        notification
+        read
+        run: subject
+        startTime
+```
+
 ### the participant list for (viewer)
 
 Authored path: `RunTogether.ParticipantList`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
 
 ```former
-Former "the participant list for (viewer)" — inputs (viewer); bindings (participation, user, username, event); promises exactly one record — forms:
+Former "the participant list for (viewer)" — inputs (viewer); bindings (participation, user, username, run); promises exactly one record — forms:
   a record of
-    participations: each Joining._all () has (event, participation, user)
-      where view "(viewer) can see (run)" with (run: event, viewer)
+    participations: each Joining._all () has (event: run, participation, user)
+      where view "(viewer) can see (run)" with (run, viewer)
       where Registering._username (user) has (username)
       form a record of
-        event
+        event: run
         participation
         user: username
 ```
@@ -332,9 +428,9 @@ Authored path: `RunTogether.RunList`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
 
 ```former
-Former "the run list for (user)" — inputs (user); bindings (run, owner, ownerName, startTime, distance, pace, location, details, earliestTime, latestTime, minDistance, maxDistance, minPace, maxPace); promises exactly one record — forms:
+Former "the run list for (user)" — inputs (user); bindings (run, owner, ownerName, startTime, distance, pace, location, details, earliestTime, latestTime, minDistance, maxDistance, minPace, maxPace, status); promises exactly one record — forms:
   a record of
-    runs: each RunPlanning._all () has (details, distance, earliestTime, latestTime, location, maxDistance, maxPace, minDistance, minPace, owner, pace, run, startTime)
+    runs: each RunPlanning._all () has (details, distance, earliestTime, latestTime, location, maxDistance, maxPace, minDistance, minPace, owner, pace, run, startTime, status)
       where view "(viewer) can see (run)" with (run, viewer: user)
       where Registering._username (user: owner) has (username: ownerName)
       form a record of
@@ -351,6 +447,7 @@ Former "the run list for (user)" — inputs (user); bindings (run, owner, ownerN
         pace
         run
         startTime
+        status
 ```
 
 ### the suggestion list for (user)
@@ -448,6 +545,42 @@ then
   Sessioning.use (session)
 ```
 
+### RunTogether.AcceptSuggestion:canceled#2
+
+Authored path: `RunTogether.AcceptSuggestion`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 43.
+
+```reaction
+when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
+where
+  earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (decider, event, suggester)
+  view "(user) is friends with (other)" with (other: suggester, user: decider)
+  view "the owner and status of (run)" with (run: event) has (status: "CANCELED")
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
+### RunTogether.AcceptSuggestion:doesnt-fit#2
+
+Authored path: `RunTogether.AcceptSuggestion`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 43.
+
+```reaction
+when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
+where
+  earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (change, decider, event, suggester)
+  view "(user) is friends with (other)" with (other: suggester, user: decider)
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  (details, distance, location, pace, startTime, valid: true) is readRunChange (change)
+  RunPlanning._fits (details, distance, location, pace, run: event, startTime) has (fits: false)
+then
+  RequestBoundary.respond (error: "CHANGE_DOESNT_FIT", requestId)
+```
+
 ### RunTogether.AcceptSuggestion:friend#2
 
 Authored path: `RunTogether.AcceptSuggestion`.
@@ -457,8 +590,12 @@ Authored path: `RunTogether.AcceptSuggestion`.
 ```reaction
 when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
 where
-  ChangeSuggesting._all () has (decider, suggester, suggestion)
+  earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (change, decider, event, suggester)
   view "(user) is friends with (other)" with (other: suggester, user: decider)
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  (details, distance, location, pace, startTime, valid: true) is readRunChange (change)
+  RunPlanning._fits (details, distance, location, pace, run: event, startTime) has (fits: true)
 then
   ChangeSuggesting.accept (decider, suggestion)
 ```
@@ -475,6 +612,41 @@ where
   earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
 then
   RequestBoundary.respond (change, event, requestId)
+```
+
+### RunTogether.AcceptSuggestion:invalid#2
+
+Authored path: `RunTogether.AcceptSuggestion`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 43.
+
+```reaction
+when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
+where
+  earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (change, decider, event, suggester)
+  view "(user) is friends with (other)" with (other: suggester, user: decider)
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  (valid: false) is readRunChange (change)
+then
+  RequestBoundary.respond (error: "INVALID_CHANGE", requestId)
+```
+
+### RunTogether.AcceptSuggestion:no-run#2
+
+Authored path: `RunTogether.AcceptSuggestion`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 43.
+
+```reaction
+when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
+where
+  earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (decider, event, suggester)
+  view "(user) is friends with (other)" with (other: suggester, user: decider)
+  no RunPlanning._all () has (run: event)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
 ```
 
 ### RunTogether.AcceptSuggestion:not-decider#2
@@ -515,9 +687,9 @@ Authored path: `RunTogether.AcceptSuggestion`.
 ```reaction
 when Sessioning.use (session, subject: decider), asked by RunTogether.AcceptSuggestion
 where
-  ChangeSuggesting._all () has (decider, suggester, suggestion)
-  no view "(user) is friends with (other)" with (other: suggester, user: decider)
   earlier, RequestBoundary.request (path: "/suggestions/accept", requestId, session, suggestion)
+  view "the people and run of (suggestion)" with (suggestion) has (decider, suggester)
+  no view "(user) is friends with (other)" with (other: suggester, user: decider)
 then
   RequestBoundary.respond (error: "NOT_FRIENDS", requestId)
 ```
@@ -529,6 +701,8 @@ Authored path: `RunTogether.AcceptedSuggestionJoinsSuggester`.
 
 ```reaction
 when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
+where
+  no Joining._all () has (event, user: suggester)
 then
   Joining.join (event, user: suggester)
 ```
@@ -540,8 +714,10 @@ Authored path: `RunTogether.AcceptedSuggestionUpdatesRun`.
 
 ```reaction
 when ChangeSuggesting.accept (decider, suggestion, change, event, suggester)
+where
+  (details, distance, location, pace, startTime, valid: true) is readRunChange (change)
 then
-  RunPlanning.update (owner: decider, run: event, startTime: change)
+  RunPlanning.update (details, distance, location, owner: decider, pace, run: event, startTime)
 ```
 
 ### RunTogether.CancelRun
@@ -662,6 +838,22 @@ then
   Sessioning.use (session)
 ```
 
+### RunTogether.JoinRun:canceled#2
+
+Authored path: `RunTogether.JoinRun`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 16.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 21.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by RunTogether.JoinRun
+where
+  earlier, RequestBoundary.request (event, path: "/runs/join", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner, status: "CANCELED")
+  view "(user) is friends with (other)" with (other: owner, user)
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
 ### RunTogether.JoinRun:friend#2
 
 Authored path: `RunTogether.JoinRun`.
@@ -671,7 +863,8 @@ Authored path: `RunTogether.JoinRun`.
 ```reaction
 when Sessioning.use (session, subject: user), asked by RunTogether.JoinRun
 where
-  RunPlanning._all () has (owner, run: event)
+  earlier, RequestBoundary.request (event, path: "/runs/join", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner, status: "ACTIVE")
   view "(user) is friends with (other)" with (other: owner, user)
 then
   Joining.join (event, user)
@@ -701,7 +894,8 @@ Authored path: `RunTogether.JoinRun`.
 when Sessioning.use (session, subject: user), asked by RunTogether.JoinRun
 where
   earlier, RequestBoundary.request (event, path: "/runs/join", requestId, session)
-  no view "(viewer) can see (run)" with (run: event, viewer: user)
+  no view "(user) is a friend of the owner of (run)" with (run: event, user)
+  no RunPlanning._all () has (owner: user, run: event)
 then
   RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
 ```
@@ -715,8 +909,8 @@ Authored path: `RunTogether.JoinRun`.
 ```reaction
 when Sessioning.use (session, subject: user), asked by RunTogether.JoinRun
 where
-  RunPlanning._all () has (owner: user, run: event)
   earlier, RequestBoundary.request (event, path: "/runs/join", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: user)
 then
   RequestBoundary.respond (error: "OWN_RUN", requestId)
 ```
@@ -1119,6 +1313,40 @@ then
   Sessioning.use (session)
 ```
 
+### RunTogether.SuggestChange:canceled#2
+
+Authored path: `RunTogether.SuggestChange`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 42.
+
+```reaction
+when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
+where
+  earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: decider, status: "CANCELED")
+  view "(user) is friends with (other)" with (other: decider, user: suggester)
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
+### RunTogether.SuggestChange:doesnt-fit#2
+
+Authored path: `RunTogether.SuggestChange`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 42.
+
+```reaction
+when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
+where
+  earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: decider, status: "ACTIVE")
+  view "(user) is friends with (other)" with (other: decider, user: suggester)
+  (details, distance, location, pace, startTime, valid: true) is readRunChange (change)
+  RunPlanning._fits (details, distance, location, pace, run: event, startTime) has (fits: false)
+then
+  RequestBoundary.respond (error: "CHANGE_DOESNT_FIT", requestId)
+```
+
 ### RunTogether.SuggestChange:friend#2
 
 Authored path: `RunTogether.SuggestChange`.
@@ -1128,9 +1356,11 @@ Authored path: `RunTogether.SuggestChange`.
 ```reaction
 when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
 where
-  RunPlanning._all () has (owner: decider, run: event)
-  view "(user) is friends with (other)" with (other: decider, user: suggester)
   earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: decider, status: "ACTIVE")
+  view "(user) is friends with (other)" with (other: decider, user: suggester)
+  (details, distance, location, pace, startTime, valid: true) is readRunChange (change)
+  RunPlanning._fits (details, distance, location, pace, run: event, startTime) has (fits: true)
 then
   ChangeSuggesting.suggest (change, decider, event, suggester)
 ```
@@ -1159,9 +1389,27 @@ Authored path: `RunTogether.SuggestChange`.
 when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
 where
   earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
-  no view "(viewer) can see (run)" with (run: event, viewer: suggester)
+  no view "(user) is a friend of the owner of (run)" with (run: event, user: suggester)
+  no RunPlanning._all () has (owner: suggester, run: event)
 then
   RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### RunTogether.SuggestChange:invalid#2
+
+Authored path: `RunTogether.SuggestChange`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 39.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 42.
+
+```reaction
+when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
+where
+  earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: decider, status: "ACTIVE")
+  view "(user) is friends with (other)" with (other: decider, user: suggester)
+  (valid: false) is readRunChange (change)
+then
+  RequestBoundary.respond (error: "INVALID_CHANGE", requestId)
 ```
 
 ### RunTogether.SuggestChange:owner#2
@@ -1173,8 +1421,8 @@ Authored path: `RunTogether.SuggestChange`.
 ```reaction
 when Sessioning.use (session, subject: suggester), asked by RunTogether.SuggestChange
 where
-  RunPlanning._all () has (owner: suggester, run: event)
   earlier, RequestBoundary.request (change, event, path: "/suggestions/create", requestId, session)
+  view "the owner and status of (run)" with (run: event) has (owner: suggester)
 then
   RequestBoundary.respond (error: "OWN_RUN", requestId)
 ```
@@ -1186,7 +1434,7 @@ Authored path: `RunTogether.UpdateRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 11.
 
 ```reaction
-when RequestBoundary.request (distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
+when RequestBoundary.request (details, distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
 then
   Sessioning.use (session)
 ```
@@ -1200,9 +1448,9 @@ Authored path: `RunTogether.UpdateRun`.
 ```reaction
 when Sessioning.use (session, subject: owner), asked by RunTogether.UpdateRun
 where
-  earlier, RequestBoundary.request (distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
+  earlier, RequestBoundary.request (details, distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
 then
-  RunPlanning.update (distance, location, owner, pace, run, startTime)
+  RunPlanning.update (details, distance, location, owner, pace, run, startTime)
 ```
 
 ### RunTogether.UpdateRun#3
@@ -1212,9 +1460,9 @@ Authored path: `RunTogether.UpdateRun`.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 11.
 
 ```reaction
-when RunPlanning.update (distance, location, owner, pace, run, startTime), asked by RunTogether.UpdateRun#2
+when RunPlanning.update (details, distance, location, owner, pace, run, startTime), asked by RunTogether.UpdateRun#2
 where
-  earlier, RequestBoundary.request (distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
+  earlier, RequestBoundary.request (details, distance, location, pace, path: "/runs/update", requestId, run, session, startTime)
 then
   RequestBoundary.respond (requestId, run)
 ```
@@ -1257,6 +1505,171 @@ where
   earlier, RequestBoundary.request (path: "/suggestions/withdraw", requestId, session, suggestion)
 then
   RequestBoundary.respond (requestId, suggestion)
+```
+
+### notifications.reading.ListNotifications
+
+Authored path: `notifications.reading.ListNotifications`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 12.
+
+```reaction
+when RequestBoundary.request (path: "/notifications/list", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### notifications.reading.ListNotifications#2
+
+Authored path: `notifications.reading.ListNotifications`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 12.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by notifications.reading.ListNotifications
+where
+  earlier, RequestBoundary.request (path: "/notifications/list", requestId, session)
+then
+  RequestBoundary.respond (notifications: former "the notifications of (user)" with (user), requestId)
+```
+
+### notifications.reading.MarkAllRead
+
+Authored path: `notifications.reading.MarkAllRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 14.
+
+```reaction
+when RequestBoundary.request (path: "/notifications/read-all", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### notifications.reading.MarkAllRead#2
+
+Authored path: `notifications.reading.MarkAllRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by notifications.reading.MarkAllRead
+then
+  Notifying.markAllRead (recipient: user)
+```
+
+### notifications.reading.MarkAllRead#3
+
+Authored path: `notifications.reading.MarkAllRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 14.
+
+```reaction
+when Notifying.markAllRead (recipient: user), asked by notifications.reading.MarkAllRead#2
+where
+  earlier, RequestBoundary.request (path: "/notifications/read-all", requestId, session)
+then
+  RequestBoundary.respond (requestId)
+```
+
+### notifications.reading.MarkRead
+
+Authored path: `notifications.reading.MarkRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 13.
+
+```reaction
+when RequestBoundary.request (notification, path: "/notifications/read", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### notifications.reading.MarkRead#2
+
+Authored path: `notifications.reading.MarkRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 13.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by notifications.reading.MarkRead
+where
+  earlier, RequestBoundary.request (notification, path: "/notifications/read", requestId, session)
+then
+  Notifying.markRead (notification, recipient: user)
+```
+
+### notifications.reading.MarkRead#3
+
+Authored path: `notifications.reading.MarkRead`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 9.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 13.
+
+```reaction
+when Notifying.markRead (notification, recipient: user), asked by notifications.reading.MarkRead#2
+where
+  earlier, RequestBoundary.request (notification, path: "/notifications/read", requestId, session)
+then
+  RequestBoundary.respond (notification, requestId)
+```
+
+### notifications.telling.AcceptanceNotifiesSuggester
+
+Authored path: `notifications.telling.AcceptanceNotifiesSuggester`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 5.
+
+```reaction
+when ChangeSuggesting.accept (decider, suggestion, event, suggester)
+then
+  Notifying.notify (actor: decider, kind: "SUGGESTION_ACCEPTED", recipient: suggester, subject: event)
+```
+
+### notifications.telling.CancelNotifiesParticipants
+
+Authored path: `notifications.telling.CancelNotifiesParticipants`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 7.
+
+```reaction
+when RunPlanning.cancel (owner, run)
+where
+  Joining._all () has (event: run, user: participant)
+then
+  Notifying.notify (actor: owner, kind: "RUN_CANCELED", recipient: participant, subject: run)
+```
+
+### notifications.telling.EditNotifiesParticipants
+
+Authored path: `notifications.telling.EditNotifiesParticipants`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 7.
+
+```reaction
+when RunPlanning.update (owner, run)
+where
+  Joining._all () has (event: run, user: participant)
+then
+  Notifying.notify (actor: owner, kind: "RUN_EDITED", recipient: participant, subject: run)
+```
+
+### notifications.telling.RejectionNotifiesSuggester
+
+Authored path: `notifications.telling.RejectionNotifiesSuggester`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 5.
+
+```reaction
+when ChangeSuggesting.reject (decider, suggestion)
+where
+  ChangeSuggesting._all () has (event, suggester, suggestion)
+then
+  Notifying.notify (actor: decider, kind: "SUGGESTION_REJECTED", recipient: suggester, subject: event)
+```
+
+### notifications.telling.SuggestionNotifiesOwner
+
+Authored path: `notifications.telling.SuggestionNotifiesOwner`.
+- Covered by [Notifications](../design/compositions/Notifications.md), line 5.
+
+```reaction
+when ChangeSuggesting.suggest (decider, event, suggester, suggestion)
+then
+  Notifying.notify (actor: suggester, kind: "SUGGESTION_RECEIVED", recipient: decider, subject: event)
 ```
 
 ### reusable.accounts.identifying.Me
@@ -1642,6 +2055,9 @@ not listed here have no explicit input contract.
 - `/friends/request` — requires `session`, `username`
 - `/friends/requests` — requires `session`
 - `/friends/search` — requires `session`, `text`
+- `/notifications/list` — requires `session`
+- `/notifications/read` — requires `session`, `notification`
+- `/notifications/read-all` — requires `session`
 - `/runs/cancel` — requires `session`, `run`
 - `/runs/create` — requires `details`, `distance`, `location`, `pace`, `session`, `startTime`
 - `/runs/flexibility` — requires `session`, `run`; fills `earliestTime` with null when absent; fills `latestTime` with null when absent; fills `maxDistance` with null when absent; fills `maxPace` with null when absent; fills `minDistance` with null when absent; fills `minPace` with null when absent
@@ -1649,7 +2065,7 @@ not listed here have no explicit input contract.
 - `/runs/leave` — requires `session`, `event`
 - `/runs/list` — requires `session`
 - `/runs/participants` — requires `session`
-- `/runs/update` — requires `session`, `run`; fills `distance` with null when absent; fills `location` with null when absent; fills `pace` with null when absent; fills `startTime` with null when absent
+- `/runs/update` — requires `session`, `run`; fills `details` with null when absent; fills `distance` with null when absent; fills `location` with null when absent; fills `pace` with null when absent; fills `startTime` with null when absent
 - `/suggestions/accept` — requires `session`, `suggestion`
 - `/suggestions/create` — requires `session`, `event`, `change`
 - `/suggestions/list` — requires `session`

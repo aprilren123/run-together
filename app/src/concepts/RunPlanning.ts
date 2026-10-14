@@ -3,6 +3,7 @@ import type { Collection, Db } from "mongodb";
 export class InvalidRun extends Error {}
 export class NotOwner extends Error {}
 export class InvalidFlexibility extends Error {}
+export class RunCanceled extends Error {}
 
 interface Run {
   _id: string;
@@ -18,6 +19,7 @@ interface Run {
   minPace?: number;
   maxPace?: number;
   details?: string;
+  status?: "ACTIVE" | "CANCELED";
 }
 
 function validRunDetails(distance: number, pace: number) {
@@ -73,6 +75,41 @@ function validFlexibility(run: Run) {
   return true;
 }
 
+type Changes = {
+  startTime?: string | null;
+  distance?: number | null;
+  pace?: number | null;
+  location?: string | null;
+  details?: string | null;
+};
+
+/** The run with each given value in place of its own; a value left out or null keeps the run's. */
+function withChanges(existing: Run, changes: Changes): Run {
+  return {
+    ...existing,
+    startTime: changes.startTime ?? existing.startTime,
+    distance: changes.distance ?? existing.distance,
+    pace: changes.pace ?? existing.pace,
+    location: changes.location ?? existing.location,
+    details: changes.details ?? existing.details ?? "",
+  };
+}
+
+/** Whether an updated run is one `update` accepts: positive distance and pace, within its flexibility ranges. */
+function validUpdate(run: Run): boolean {
+  return validRunDetails(run.distance, run.pace) && validFlexibility(run);
+}
+
+/**
+ * Matches the owner's run only while it is not canceled. Every change writes through this, so a run
+ * canceled after a change was checked is still never changed, and only one of two cancellations succeeds.
+ * Runs are never deleted and the owner was checked first, so a write that matches nothing means the run
+ * was canceled in between.
+ */
+function stillActive(run: string, owner: string) {
+  return { _id: run, owner, status: { $ne: "CANCELED" as const } };
+}
+
 export class RunPlanningConcept {
   private readonly runs: Collection<Run>;
 
@@ -107,6 +144,7 @@ export class RunPlanningConcept {
       pace,
       location,
       details,
+      status: "ACTIVE",
     };
 
     await this.runs.insertOne(run);
@@ -121,6 +159,7 @@ export class RunPlanningConcept {
     distance,
     pace,
     location,
+    details,
   }: {
     owner: string;
     run: string;
@@ -128,36 +167,33 @@ export class RunPlanningConcept {
     distance?: number;
     pace?: number;
     location?: string;
+    details?: string;
   }) {
     const existing = await this.runs.findOne({ _id: run });
 
     if (!existing || existing.owner !== owner) {
       throw new NotOwner("The run does not exist or does not belong to this user.");
     }
+    if (existing.status === "CANCELED") {
+      throw new RunCanceled("This run has been canceled.");
+    }
 
-    const updated: Run = {
-      ...existing,
-      startTime: startTime ?? existing.startTime,
-      distance: distance ?? existing.distance,
-      pace: pace ?? existing.pace,
-      location: location ?? existing.location,
-    };
+    const updated = withChanges(existing, { startTime, distance, pace, location, details });
 
-    if (!validRunDetails(updated.distance, updated.pace) || !validFlexibility(updated)) {
+    if (!validUpdate(updated)) {
       throw new InvalidRun("The updated run details are invalid.");
     }
 
-    await this.runs.updateOne(
-      { _id: run },
-      {
-        $set: {
-          startTime: updated.startTime,
-          distance: updated.distance,
-          pace: updated.pace,
-          location: updated.location,
-        },
+    const { matchedCount } = await this.runs.updateOne(stillActive(run, owner), {
+      $set: {
+        startTime: updated.startTime,
+        distance: updated.distance,
+        pace: updated.pace,
+        location: updated.location,
+        details: updated.details,
       },
-    );
+    });
+    if (matchedCount === 0) throw new RunCanceled("This run has been canceled.");
 
     return { run };
   }
@@ -186,6 +222,9 @@ export class RunPlanningConcept {
     if (!existing || existing.owner !== owner) {
       throw new NotOwner("The run does not exist or does not belong to this user.");
     }
+    if (existing.status === "CANCELED") {
+      throw new RunCanceled("This run has been canceled.");
+    }
 
     const flexibility = {
       earliestTime: earliestTime ?? undefined,
@@ -205,12 +244,10 @@ export class RunPlanningConcept {
       throw new InvalidFlexibility("The flexibility ranges are invalid.");
     }
 
-    await this.runs.updateOne(
-      { _id: run },
-      {
-        $set: flexibility,
-      },
-    );
+    const { matchedCount } = await this.runs.updateOne(stillActive(run, owner), {
+      $set: flexibility,
+    });
+    if (matchedCount === 0) throw new RunCanceled("This run has been canceled.");
 
     return { run };
   }
@@ -221,10 +258,24 @@ export class RunPlanningConcept {
     if (!existing || existing.owner !== owner) {
       throw new NotOwner("The run does not exist or does not belong to this user.");
     }
+    if (existing.status === "CANCELED") {
+      throw new RunCanceled("This run has been canceled.");
+    }
 
-    await this.runs.deleteOne({ _id: run });
+    // A canceled run is kept, so participants still see that it was called off.
+    const { matchedCount } = await this.runs.updateOne(stillActive(run, owner), {
+      $set: { status: "CANCELED" },
+    });
+    if (matchedCount === 0) throw new RunCanceled("This run has been canceled.");
 
     return { run };
+  }
+
+  async _fits({ run, ...changes }: { run: string } & Changes) {
+    const existing = await this.runs.findOne({ _id: run });
+    const fits =
+      !!existing && existing.status !== "CANCELED" && validUpdate(withChanges(existing, changes));
+    return { fits };
   }
 
   async _all(_input: Record<string, never>) {
@@ -240,6 +291,8 @@ export class RunPlanningConcept {
       maxDistance: rest.maxDistance ?? null,
       minPace: rest.minPace ?? null,
       maxPace: rest.maxPace ?? null,
+      // Runs from before cancellation was kept have no status, and are active.
+      status: rest.status ?? "ACTIVE",
     }));
   }
 }

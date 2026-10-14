@@ -13,6 +13,7 @@ export default {
       new URL("./design/compositions/reusable/passwords.md", import.meta.url),
       new URL("./design/compositions/reusable/commons.md", import.meta.url),
       new URL("./design/compositions/RunTogether.md", import.meta.url),
+      new URL("./design/compositions/Notifications.md", import.meta.url),
     ],
   },
 };

@@ -76,14 +76,62 @@ describe("Registering", () => {
   test("_search needs 2 to 32 characters, and treats regular-expression characters as text", async () => {
     const { registering } = await setup();
     await registering.register({ username: "maya" });
-    for (const text of ["", "m", "x".repeat(33), ".*", "ma.a", "(m"]) {
+    for (const text of ["m", "x".repeat(33), ".*", "ma.a", "(m"]) {
       expect(await registering._search({ text })).toEqual([]);
     }
+  });
+
+  test("_search with empty text lists the first 10 users alphabetically, and nobody when there are none", async () => {
+    const { registering } = await setup();
+    expect(await registering._search({ text: "" })).toEqual([]);
+    const names = [
+      "kai",
+      "Ana",
+      "bob",
+      "Cyd",
+      "dee",
+      "Eli",
+      "fay",
+      "Gus",
+      "hal",
+      "Ivy",
+      "joe",
+      "Lua",
+    ];
+    for (const username of names) await registering.register({ username });
+    expect((await registering._search({ text: "" })).map((row) => row.username)).toEqual([
+      "Ana",
+      "bob",
+      "Cyd",
+      "dee",
+      "Eli",
+      "fay",
+      "Gus",
+      "hal",
+      "Ivy",
+      "joe",
+    ]);
   });
 
   test("_username and _byUsername return no row for an unknown user or username", async () => {
     const { registering } = await setup();
     expect(await registering._username({ user: "missing" as User })).toEqual([]);
     expect(await registering._byUsername({ username: "nobody" })).toEqual([]);
+  });
+
+  test("a refused registration stores nothing, and a taken username keeps its original user", async () => {
+    const { registering } = await setup();
+    const { user: maya } = await registering.register({ username: "maya" });
+    for (const username of ["ma", "maya lee", "x".repeat(33)]) {
+      const refused = registering.register({ username });
+      await expect(refused).rejects.toThrow(InvalidUsername);
+      await expect(refused).rejects.toThrow(
+        "A username must have 3 to 32 letters, digits, underscores, or hyphens.",
+      );
+      expect(await registering._byUsername({ username })).toEqual([]);
+    }
+    await expect(registering.register({ username: "maya" })).rejects.toThrow(UsernameTaken);
+    expect(await registering._byUsername({ username: "maya" })).toEqual([{ user: maya }]);
+    expect(await registering._search({ text: "" })).toEqual([{ user: maya, username: "maya" }]);
   });
 });

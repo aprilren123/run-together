@@ -173,6 +173,42 @@ export type RunTogetherWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
   };
+  "/notifications/list": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "notifications": {
+        "notifications": ({
+          "actor": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+          "at": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["_for"]>>>, ["at"]>>;
+          "kind": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["_for"]>>>, ["kind"]>>;
+          "notification": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["_for"]>>>, ["notification"]>>;
+          "read": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["_for"]>>>, ["read"]>>;
+          "run": Jsonify<AllOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["_for"]>>>, ["subject"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>>;
+          "startTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["startTime"]>> | null;
+        })[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/notifications/read": {
+    input: {
+      "notification": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Notifying"]["markRead"]>[0], ["notification"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "notification": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Notifying"]["markRead"]>[0], ["notification"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Notifying"]["markRead"]>>, ["notification"]>]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "NOT_SIGNED_IN" };
+  };
+  "/notifications/read-all": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: Record<string, never>;
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
   "/runs/cancel": {
     input: {
       "run": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["cancel"]>[0], ["run"]>>;
@@ -181,7 +217,7 @@ export type RunTogetherWire = {
     output: {
       "run": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["cancel"]>[0], ["run"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["cancel"]>>, ["run"]>]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "NOT_OWNER" | "NOT_SIGNED_IN" };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_CANCELED" };
   };
   "/runs/create": {
     input: {
@@ -211,17 +247,17 @@ export type RunTogetherWire = {
     output: {
       "run": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["setFlexibility"]>[0], ["run"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["setFlexibility"]>>, ["run"]>]>>;
     };
-    error: { error: AppWideError | "INVALID_FLEXIBILITY" | "INVALID_INPUT" | "NOT_OWNER" | "NOT_SIGNED_IN" };
+    error: { error: AppWideError | "INVALID_FLEXIBILITY" | "INVALID_INPUT" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_CANCELED" };
   };
   "/runs/join": {
     input: {
-      "event": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Joining"]["join"]>[0], ["event"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>>;
+      "event": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Joining"]["join"]>[0], ["event"]>]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
     };
     output: {
       "participation": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["join"]>>, ["participation"]>>;
     };
-    error: { error: AppWideError | "ALREADY_JOINED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_NOT_FOUND" };
+    error: { error: AppWideError | "ALREADY_JOINED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_CANCELED" | "RUN_NOT_FOUND" };
   };
   "/runs/leave": {
     input: {
@@ -253,6 +289,7 @@ export type RunTogetherWire = {
           "pace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["pace"]>>;
           "run": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>>;
           "startTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["startTime"]>>;
+          "status": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["status"]>>;
         }[];
       };
     };
@@ -265,7 +302,7 @@ export type RunTogetherWire = {
     output: {
       "participants": {
         "participations": {
-          "event": Jsonify<AllOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>>;
+          "event": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>>;
           "participation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["participation"]>>;
           "user": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
         }[];
@@ -275,6 +312,7 @@ export type RunTogetherWire = {
   };
   "/runs/update": {
     input: {
+      "details"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>[0], ["details"]>>;
       "distance"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>[0], ["distance"]>>;
       "location"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>[0], ["location"]>>;
       "pace"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>[0], ["pace"]>>;
@@ -285,12 +323,12 @@ export type RunTogetherWire = {
     output: {
       "run": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>[0], ["run"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["update"]>>, ["run"]>]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_RUN" | "NOT_OWNER" | "NOT_SIGNED_IN" };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_RUN" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_CANCELED" };
   };
   "/suggestions/accept": {
     input: {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
-      "suggestion": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>[0], ["suggestion"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["_all"]>>>, ["suggestion"]>]>>;
+      "suggestion": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["_all"]>>>, ["suggestion"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>[0], ["suggestion"]>]>>;
     };
     output: {
       "change": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>>, ["change"]>>;
@@ -299,18 +337,18 @@ export type RunTogetherWire = {
       "change": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>>, ["change"]>>;
       "event": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["accept"]>>, ["event"]>>;
     };
-    error: { error: AppWideError | "ALREADY_JOINED" | "CANNOT_ACCEPT" | "INVALID_INPUT" | "INVALID_RUN" | "NOT_FRIENDS" | "NOT_OWNER" | "NOT_SIGNED_IN" };
+    error: { error: AppWideError | "ALREADY_JOINED" | "CANNOT_ACCEPT" | "CHANGE_DOESNT_FIT" | "INVALID_CHANGE" | "INVALID_INPUT" | "INVALID_RUN" | "NOT_FRIENDS" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_CANCELED" | "RUN_NOT_FOUND" };
   };
   "/suggestions/create": {
     input: {
-      "change": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["suggest"]>[0], ["change"]>>;
-      "event": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["suggest"]>[0], ["event"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>>;
+      "change": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.computations)["readRunChange"]["fn"]>[0], ["change"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["suggest"]>[0], ["change"]>]>>;
+      "event": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["suggest"]>[0], ["event"]>]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
     };
     output: {
       "suggestion": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["ChangeSuggesting"]["suggest"]>>, ["suggestion"]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_NOT_FOUND" | "SAME_USER" };
+    error: { error: AppWideError | "CHANGE_DOESNT_FIT" | "INVALID_CHANGE" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_CANCELED" | "RUN_NOT_FOUND" | "SAME_USER" };
   };
   "/suggestions/list": {
     input: {

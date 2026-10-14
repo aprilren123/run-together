@@ -4,11 +4,13 @@ import runPlanningSpec from "@design/concepts/RunPlanning.md" with { type: "text
 import joiningSpec from "@design/concepts/Joining.md" with { type: "text" };
 import changeSuggestingSpec from "@design/concepts/ChangeSuggesting.md" with { type: "text" };
 import friendingSpec from "@design/concepts/Friending.md" with { type: "text" };
+import notifyingSpec from "@design/concepts/Notifying.md" with { type: "text" };
 
 import {
   InvalidRun,
   NotOwner,
   InvalidFlexibility,
+  RunCanceled,
   RunPlanningConcept,
 } from "./concepts/RunPlanning.ts";
 
@@ -30,6 +32,9 @@ import {
   FriendingConcept,
 } from "./concepts/Friending.ts";
 
+import { NotificationNotFound, NotifyingConcept } from "./concepts/Notifying.ts";
+import { readRunChange } from "./runChange.ts";
+
 import { registering } from "./concepts/Registering/registry.ts";
 import { authenticating } from "./concepts/Authenticating/registry.ts";
 import { sessioning } from "./concepts/Sessioning/registry.ts";
@@ -42,6 +47,7 @@ const runPlanning = registerConcept({
     INVALID_RUN: InvalidRun,
     NOT_OWNER: NotOwner,
     INVALID_FLEXIBILITY: InvalidFlexibility,
+    RUN_CANCELED: RunCanceled,
   },
 });
 
@@ -76,16 +82,29 @@ const friending = registerConcept({
   },
 });
 
-export const applicationConceptSet = conceptSet({
-  RunPlanning: runPlanning,
-  Joining: joining,
-  ChangeSuggesting: changeSuggesting,
-  Friending: friending,
-
-  Registering: registering,
-  Authenticating: authenticating,
-  Sessioning: sessioning,
-  CommonsFederating: commonsFederating,
+const notifying = registerConcept({
+  class: NotifyingConcept,
+  spec: notifyingSpec,
+  refusals: {
+    NOT_FOUND: NotificationNotFound,
+  },
 });
 
-export const { concepts } = applicationConceptSet;
+export const applicationConceptSet = conceptSet(
+  {
+    RunPlanning: runPlanning,
+    Joining: joining,
+    ChangeSuggesting: changeSuggesting,
+    Friending: friending,
+    Notifying: notifying,
+
+    Registering: registering,
+    Authenticating: authenticating,
+    Sessioning: sessioning,
+    CommonsFederating: commonsFederating,
+  },
+  // Pure computations the compositions use, here to read a suggested RunChange.
+  { readRunChange },
+);
+
+export const { concepts, computations } = applicationConceptSet;

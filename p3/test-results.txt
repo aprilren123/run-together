@@ -1,0 +1,585 @@
+RunTogether — P3 test execution log
+====================================
+
+Date:        2026-10-14 18:45:01 UTC
+Commit:      c19498a plus uncommitted P3 work
+Tools:       Bun 1.4.2, @mit-sdg/sync-engine 1.1.0, MongoDB 8.0 (Podman, `bun run db:up`),
+             Google Chrome 155.0.8059.41 (headless, for the browser checks)
+
+Summary
+-------
+  bun run check:design     passed (15 design documents)
+  bun run check            passed (9 concepts; application diagnostics passed)
+  bun run test             194 tests in 21 files: 194 pass, 0 fail
+    concept tests            83 tests in 10 files (9 concepts + the Commons provider)
+    HTTP integration tests   79 tests in 7 files
+    other unit tests         32 tests in 4 files (frontend logic, RunChange reading)
+  Chrome browser checks    all passed
+    discovery (fresh DB)        20 / 20
+    discovery (after restart)    5 / 5
+    Morgan–Jamie journey        65 / 65
+    sign-in and sessions        38 / 38
+    Profile layout              46 / 46
+
+Every Bun test runs against its own empty MongoDB database (named runtogether-test-<pid>-<n>),
+never the app's `myapp` database, and all of them are dropped when the run ends. The browser checks
+ran against a separate backend (port 3091) and frontend (port 8091) using the database
+`runtogether-browser`, which was emptied first and dropped afterwards.
+
+Concept test coverage (tests/concepts/)
+---------------------------------------
+Every action and query of every concept is executed in that concept's own test file, every
+refusal in its specification is asserted by its exception class and exact message, and each
+refusal test checks that the concept's state is unchanged afterwards.
+
+Concept / action          Success test                                      Refusal tests (state unchanged afterwards)
+RunPlanning.create         its principle; "a new run is ACTIVE…"           INVALID_RUN (no run stored)
+RunPlanning.update         "a new run is ACTIVE…", "leaves out a field…"    NOT_OWNER, INVALID_RUN (incl. all-or-nothing), RUN_CANCELED
+RunPlanning.setFlexibility its principle; "clears the ranges"              INVALID_FLEXIBILITY (6 cases), NOT_OWNER, RUN_CANCELED
+RunPlanning.cancel         its principle; "canceling keeps the run…"        NOT_OWNER, RUN_CANCELED (twice, and two at once)
+RunPlanning._all / _fits   every test / "_fits says whether…"               —
+Joining.join               its principle; several users and events          ALREADY_JOINED (once, and two at once)
+Joining.leave              its principle; leaving one keeps the others      NOT_JOINED (3 cases; twice)
+Friending.request          its principle                                    CANNOT_REQUEST (self, repeat, reverse, friends; two at once)
+Friending.accept           its principle; one of several requests           CANNOT_ACCEPT (non-recipient, unknown, decided; races)
+Friending.reject           "the recipient can reject…"                      CANNOT_REJECT (non-recipient, unknown, decided; race)
+Friending.remove           its principle; either friend                     CANNOT_REMOVE (stranger, unknown, twice; two at once)
+ChangeSuggesting.suggest   its principle; any change shape                  SAME_USER (nothing stored)
+ChangeSuggesting.accept    its principle; one of several                    CANNOT_ACCEPT (non-decider, decided, unknown; races)
+ChangeSuggesting.reject    "the decider can reject…"                        CANNOT_REJECT (non-decider, decided, unknown; race)
+ChangeSuggesting.withdraw  "the suggester can withdraw…"                    CANNOT_WITHDRAW (non-suggester, decided, unknown; race)
+Notifying.notify / _for    its principle; several recipients                —
+Notifying.markRead         its principle; twice                             NOT_FOUND (other recipient, unknown)
+Notifying.markAllRead      "marks every one…, and no one else's"            —
+Registering.register       its principle                                    INVALID_USERNAME, USERNAME_TAKEN (nothing stored; two at once)
+Registering queries        _byUsername, _username, _search (incl. empty)    —
+Authenticating.set         its principle                                    PASSWORD_SET (old password still works), INVALID_PASSWORD (none stored)
+Authenticating.authenticate its principle                                   INVALID_CREDENTIALS (repeated; right password still works)
+Sessioning.start/use/end   its principle; lastUsed                          NOT_SIGNED_IN ("a refused use or end changes no session")
+Federating.start           "start returns an address…"                      —
+Federating.finish          its principle                                    SIGN_IN_EXPIRED, SIGN_IN_REFUSED (attempt stays unconfirmed)
+Federating.link            its principle                                    NOT_CONFIRMED (attempt still usable), ALREADY_LINKED (link kept)
+
+Bugs found by the new tests, and fixed
+--------------------------------------
+Each was shown by a failing test before the fix, which now passes:
+  - Friending: two accepts of one request at once made two friendships; an accept and a reject
+    at once both succeeded; two requests between the same people at once (either direction) were
+    both stored; two removals at once both succeeded.
+  - ChangeSuggesting: an accept and a reject (or withdrawal) of one suggestion at once both
+    succeeded, and two accepts both succeeded.
+  - RunPlanning: two cancellations of one run at once both succeeded.
+  Each action now checks and changes its record in one database operation.
+  Also: Bun ignores a `timeout` in bunfig.toml, so `bun run test` now passes --timeout 60000.
+
+Commands
+--------
+  cd app
+  bun run db:up
+  bun run check:design && bun run check
+  bun run test
+  # browser checks (servers on 3091/8091, database runtogether-browser):
+  PORT=3091 PUBLIC_ORIGIN=http://localhost:8091 MONGODB_URL=<…/runtogether-browser> bun src/main.ts
+  BACKEND_URL=http://127.0.0.1:3091 bunx vite --port 8091 --strictPort
+  bun tests/browser/discovery.browser.ts http://localhost:8091 fresh
+  (backend restarted)
+  bun tests/browser/discovery.browser.ts http://localhost:8091 restarted
+  BROWSER_MONGODB_URL=<…/runtogether-browser> bun tests/browser/journey.browser.ts http://localhost:8091
+  BROWSER_MONGODB_URL=<…/runtogether-browser> bun tests/browser/auth.browser.ts http://localhost:8091
+  bun tests/browser/profile.browser.ts http://localhost:8091
+
+================================================================
+$ bun run check:design
+================================================================
+$ sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md design/compositions/reusable/*.md
+Design form check passed for 15 files.
+exit code: 0
+
+================================================================
+$ bun run check
+================================================================
+$ sync-engine check && sync-engine artifacts check && tsc --noEmit
+Concept action/query source check passed for 9 concepts.
+Application diagnostic check passed with 36 advisories (use --show-advisories to list them).
+exit code: 0
+
+================================================================
+$ bun run test
+================================================================
+$ bun test --timeout 60000
+bun test v1.4.2 (744846f84)
+
+tests/concepts/CommonsProvider.test.ts:
+Commons at http://localhost:53430 didn't redeem a sign-in code: Error: status 503
+Commons at http://localhost:53430 didn't redeem a sign-in code: Error: no user in the answer
+Commons at http://localhost:53430 didn't redeem a sign-in code: TimeoutError: The operation timed out.
+Commons at http://127.0.0.1:9 didn't redeem a sign-in code: TypeError: Unable to connect. Is the computer able to access the url?
+
+ 194 pass
+ 0 fail
+ 1051 expect() calls
+Ran 194 tests across 21 files. [31.76s]
+exit code: 0
+
+================================================================
+Every Bun test, by file (bun test --timeout 60000 --reporter=junit, same suite)
+================================================================
+tests/concepts/Authenticating.test.ts (7)
+  (pass) Authenticating > its principle: Ben authenticates with his password, and Leo can neither guess it nor set a new one
+  (pass) Authenticating > a user with no password, such as one who signed in with Commons, is refused like a wrong password
+  (pass) Authenticating > Authenticating stores an argon2id hash, never the password
+  (pass) Authenticating > a password must have 8 to 128 characters, and _acceptable returns the same answer as set
+  (pass) Authenticating > of two passwords set for one user at once, one is set and the other is refused with PASSWORD_SET
+  (pass) Authenticating > a refused password leaves the user without one, so a later valid password can still be set
+  (pass) Authenticating > a wrong password changes nothing: the right one still works afterwards, and other users are separate
+
+tests/concepts/ChangeSuggesting.test.ts (10)
+  (pass) ChangeSuggesting > its principle: Jamie suggests a change to Morgan's run, which stays pending until Morgan accepts it
+  (pass) ChangeSuggesting > the decider can reject a pending suggestion, and the suggester can withdraw one
+  (pass) ChangeSuggesting > a change is stored and returned exactly as given, whatever its shape
+  (pass) ChangeSuggesting > suggesting a change to oneself is refused with SAME_USER, and nothing is stored
+  (pass) ChangeSuggesting > only the decider can accept or reject, and only the suggester can withdraw; others change nothing
+  (pass) ChangeSuggesting > once accepted, rejected, or withdrawn, a suggestion can't be decided or withdrawn again
+  (pass) ChangeSuggesting > accepting one suggestion leaves the decider's other suggestions pending
+  (pass) ChangeSuggesting > of an accept and a reject of one suggestion at once, exactly one succeeds
+  (pass) ChangeSuggesting > of two accepts, or an accept and a withdrawal, of one suggestion at once, exactly one succeeds
+  (pass) ChangeSuggesting > _all answers no rows when there are no suggestions
+
+tests/concepts/CommonsProvider.test.ts (5)
+  (pass) CommonsProvider > the sign-in address names the app by its origin, carries the nonce as state, and the verifier's S256 challenge
+  (pass) CommonsProvider > redeeming posts exactly the code, the app, and the verifier, and returns Commons' user as the subject
+  (pass) CommonsProvider > a refused code, an error, or an answer without a user returns undefined, and nothing is retried
+  (pass) CommonsProvider > Commons not answering within the timeout returns undefined
+  (pass) CommonsProvider > a Commons that can't be reached returns undefined
+
+tests/concepts/Federating.test.ts (8)
+  (pass) Federating > its principle: Sam comes back to the same user after his Commons username changes, and neither Leo's link nor Sam's code read by Leo finishes a sign-in
+  (pass) Federating > start returns an address carrying a fresh nonce and challenge in the forms Commons accepts, and an attempt that expires in 10 minutes
+  (pass) Federating > finish refuses an unknown, expired, or confirmed attempt, or another nonce, with SIGN_IN_EXPIRED before contacting the other site
+  (pass) Federating > finish refuses a code the other site doesn't confirm with SIGN_IN_REFUSED, and the attempt stays unconfirmed
+  (pass) Federating > of two finishes of one attempt at once, one confirms it and the other is refused
+  (pass) Federating > link refuses an unconfirmed attempt with NOT_CONFIRMED and a subject already linked with ALREADY_LINKED
+  (pass) Federating > _linkable is true only for a confirmed, unexpired attempt whose subject is unlinked, and link still links after expiry
+  (pass) Federating > a link refused as NOT_CONFIRMED doesn't use up the attempt: once finished, it links
+
+tests/concepts/Friending.test.ts (12)
+  (pass) Friending > its principle: Jamie's request to Morgan makes them friends when Morgan accepts, until either removes the friendship
+  (pass) Friending > the recipient can reject a request, which removes it and makes no friendship
+  (pass) Friending > the other friend can remove a friendship too, and afterwards either can send a new request
+  (pass) Friending > a request to oneself, a repeated request, a reverse request, or a request between friends is refused with CANNOT_REQUEST
+  (pass) Friending > only the recipient can accept or reject a request; anyone else is refused and the request stays
+  (pass) Friending > an unknown, accepted, or rejected request can't be accepted or rejected again
+  (pass) Friending > only one of the two friends can remove a friendship, and only once
+  (pass) Friending > accepting one request or removing one friendship leaves every other request and friendship alone
+  (pass) Friending > of an accept and a reject of one request at once, exactly one succeeds, and at most one friendship results
+  (pass) Friending > of two accepts of one request at once, one succeeds, and exactly one friendship results
+  (pass) Friending > of two requests between the same people at once, in either direction, exactly one is made
+  (pass) Friending > of two removals of one friendship at once, exactly one succeeds
+
+tests/concepts/Joining.test.ts (7)
+  (pass) Joining > its principle: after Jamie joins Morgan's run she is a participant in it, until she leaves
+  (pass) Joining > a user can join several events, and several users one event; each participation is separate
+  (pass) Joining > joining an event twice is refused with ALREADY_JOINED, and leaves one participation
+  (pass) Joining > leaving an event the user hasn't joined is refused with NOT_JOINED, and changes nothing
+  (pass) Joining > leaving twice is refused the second time, and a user can join again after leaving
+  (pass) Joining > of two joins of one event at once, one succeeds and the other is refused with ALREADY_JOINED
+  (pass) Joining > _all answers no rows when nobody has joined anything
+
+tests/concepts/Notifying.test.ts (5)
+  (pass) Notifying > its principle: Jamie is told about Morgan's suggestion, unread and first, until she marks it read
+  (pass) Notifying > only the recipient can mark a notification read; anyone else is refused with NOT_FOUND
+  (pass) Notifying > markAllRead marks every one of the recipient's notifications, and no one else's
+  (pass) Notifying > marking a notification read twice keeps it read, and marking all read with none unread changes nothing
+  (pass) Notifying > one event can notify several people, and each person's notifications and read state are their own
+
+tests/concepts/Registering.test.ts (9)
+  (pass) Registering > its principle: Sam finds Maya by her username, and Ben registers another when hers is taken
+  (pass) Registering > a username must have 3 to 32 ASCII letters, digits, underscores, or hyphens
+  (pass) Registering > usernames are case-sensitive, so `Maya` is a different username from `maya`
+  (pass) Registering > of two registrations of one username at once, one succeeds and the other is refused with USERNAME_TAKEN
+  (pass) Registering > _search finds up to 10 usernames containing the text, ignoring case, in alphabetical order
+  (pass) Registering > _search needs 2 to 32 characters, and treats regular-expression characters as text
+  (pass) Registering > _search with empty text lists the first 10 users alphabetically, and nobody when there are none
+  (pass) Registering > _username and _byUsername return no row for an unknown user or username
+  (pass) Registering > a refused registration stores nothing, and a taken username keeps its original user
+
+tests/concepts/RunPlanning.test.ts (14)
+  (pass) RunPlanning > a new run is ACTIVE, and the owner can update its time, place, distance, pace, and description
+  (pass) RunPlanning > an update that leaves out a field keeps it, including the description
+  (pass) RunPlanning > only the owner can update or cancel, and an invalid update changes nothing
+  (pass) RunPlanning > canceling keeps the run, marked CANCELED, and it can't be changed or canceled again
+  (pass) RunPlanning > _fits says whether update would accept the given values, keeping the run's own for the rest
+  (pass) RunPlanning > someone else learns nothing about a canceled run: they're refused with NOT_OWNER
+  (pass) RunPlanning > its principle: Morgan plans a run, allows a time window, moves the run within it, and later cancels it
+  (pass) RunPlanning > creating a run with a non-positive distance or pace is refused with INVALID_RUN, and nothing is stored
+  (pass) RunPlanning > setFlexibility with nothing set clears the ranges, so the run is fixed again
+  (pass) RunPlanning > invalid ranges are refused with INVALID_FLEXIBILITY, and the run keeps its ranges
+  (pass) RunPlanning > only the owner can set flexibility; a stranger or an unknown run is refused with NOT_OWNER
+  (pass) RunPlanning > an update that would leave the run outside its own ranges is refused with INVALID_RUN, and changes nothing
+  (pass) RunPlanning > updating, setting flexibility on, or canceling one run leaves every other run alone
+  (pass) RunPlanning > of an update and a cancellation of one run at once, a canceled run is never changed afterwards
+
+tests/concepts/Sessioning.test.ts (6)
+  (pass) Sessioning > its principle: Maya stays signed in until she signs out, leaves a session unused for a week, or reaches 90 days
+  (pass) Sessioning > a session's identity is 32 random bytes in base64url
+  (pass) Sessioning > every use sets lastUsed to now, so the week of idleness counts from the latest use
+  (pass) Sessioning > a refused use or end changes no session
+  (pass) Sessioning > Sessioning refuses to use or end an unknown or ended session
+  (pass) Sessioning > of two ends of one session at once, Sessioning accepts one and refuses the other with NOT_SIGNED_IN
+
+tests/http/auth.test.ts (10)
+  (pass) Signing in with a password over HTTP > registering sets an HttpOnly session cookie, /auth/me answers the username, and logout clears it
+  (pass) Signing in with a password over HTTP > logging in with the right password starts a new session for the same user
+  (pass) Signing in with a password over HTTP > a password shorter than 8 characters is refused with 400, and no account or session is created
+  (pass) Signing in with a password over HTTP > an invalid username is refused with 400
+  (pass) Signing in with a password over HTTP > registering a taken username is refused with 409 and sets no session
+  (pass) Signing in with a password over HTTP > a wrong password and an unknown username are both refused with 401, so neither reveals which accounts exist
+  (pass) Signing in with a password over HTTP > /auth/me and /auth/logout refuse a missing, made-up, or ended session with 401
+  (pass) Signing in with a password over HTTP > a request from another origin is refused, so another site can't sign a browser in or out
+  (pass) Signing in with Commons over HTTP > starting sets the sign-in cookie, and finishing swaps it for a session
+  (pass) Signing in with Commons over HTTP > a code Commons didn't issue is refused with 403 and starts no session
+
+tests/http/discovery.test.ts (9)
+  (pass) People on RunTogether > with only one account, the list is empty: nobody is made up and the user isn't listed
+  (pass) People on RunTogether > a newly registered account appears for everyone else, and never for itself
+  (pass) People on RunTogether > lists at most 10 people, alphabetically, ignoring case
+  (pass) People on RunTogether > each person is only a username: no account id, password, or session
+  (pass) People on RunTogether > discovery needs a signed-in session
+  (pass) People on RunTogether > typing searches instead: one letter shows nobody, two or more match, and no match is empty
+  (pass) Making friends with discovered people > a listed person can be sent a request, and the statuses follow it through to friends
+  (pass) Accounts are real and last > after a restart, people can log in again with their password and are still listed
+  (pass) Accounts are real and last > every listed person has a password: each one can log in
+
+tests/http/friends-and-visibility.test.ts (17)
+  (pass) Find friends > a search finds registered usernames containing the text, ignoring case, and leaves out the searcher
+  (pass) Find friends > each result holds only a username, never a user id or anything else
+  (pass) Find friends > a search shorter than 2 characters finds nobody, and at most 10 people are returned
+  (pass) Find friends > searching needs a session
+  (pass) Find friends > a found person can be sent a request with the existing Friending actions, and accepted
+  (pass) Find friends > friend and request lists hold only the signed-in user's own friendships and requests
+  (pass) Runs are visible only to their owner and the owner's friends > the run list holds my runs and my friends' runs, and nobody else's
+  (pass) Runs are visible only to their owner and the owner's friends > participants and suggestions of a hidden run aren't listed either
+  (pass) Runs are visible only to their owner and the owner's friends > a friend sees only suggestions they made or decide on, not other friends' suggestions
+  (pass) Runs are visible only to their owner and the owner's friends > removing a friend hides their runs again, and stops joining and suggesting
+  (pass) Only accepted friends can join a run or suggest a change > a stranger calling the endpoints directly is refused with 404, the same as for a run that doesn't exist
+  (pass) Only accepted friends can join a run or suggest a change > a pending friend request isn't enough: only an accepted friendship counts
+  (pass) Only accepted friends can join a run or suggest a change > an owner can't join or suggest a change to their own run
+  (pass) Only accepted friends can join a run or suggest a change > an accepted friend joins and suggests, whichever of them sent the friend request
+  (pass) Only accepted friends can join a run or suggest a change > friends still can't manage someone else's run; the owner still can
+  (pass) Accepting a suggestion rechecks the friendship > once the friendship has ended, accepting is refused and the run, suggestion, and participants don't change
+  (pass) Accepting a suggestion rechecks the friendship > friends again, the owner can accept a pending suggestion, and a non-decider is still refused with 409
+
+tests/http/notifications.test.ts (8)
+  (pass) Who is told about what > editing a run tells everyone who joined it, not the owner or friends who didn't join
+  (pass) Who is told about what > canceling a run tells everyone who joined it
+  (pass) Who is told about what > a suggestion tells the owner, and its acceptance tells the suggester and updates the other participants
+  (pass) Who is told about what > rejecting a suggestion tells the suggester, and nobody else hears of a change
+  (pass) Who is told about what > a refused suggestion or edit tells nobody
+  (pass) Reading notifications > newest first, persisted across sign-ins, and unread until marked read
+  (pass) Reading notifications > nobody can read or mark someone else's notifications
+  (pass) Reading notifications > the notification endpoints need a signed-in session
+
+tests/http/run-management.test.ts (14)
+  (pass) Editing a run > the owner edits the time, meeting point, distance, pace, and description, and participants see the latest plan
+  (pass) Editing a run > participants, other friends, and strangers can't edit the run
+  (pass) Editing a run > an edit outside the run's flexibility ranges is refused and changes nothing
+  (pass) Leaving a run > a participant leaves, and the run goes back to being a friend's run they can join again
+  (pass) Leaving a run > someone who hasn't joined can't leave, and leaving removes only their own participation
+  (pass) Leaving a run > a participant whose friendship ended still sees the run they joined, and can leave it, but can't rejoin or suggest
+  (pass) Canceling a run > the owner cancels, and the run stays visible as CANCELED to the owner, participants, and friends, not strangers
+  (pass) Canceling a run > only the owner can cancel
+  (pass) Canceling a run > a canceled run can't be edited, canceled again, joined, or suggested to
+  (pass) Canceling a run > a suggestion pending when the run is canceled can't be accepted, and nothing changes
+  (pass) Suggesting as a participant > a friend who already joined can suggest a time, and accepting it moves the run without joining them twice
+  (pass) Each request acts on the one run or suggestion it names > joining one of a friend's runs joins only that run, and the participant list says so
+  (pass) Each request acts on the one run or suggestion it names > suggesting a change to one run creates one suggestion, for that run
+  (pass) Each request acts on the one run or suggestion it names > accepting one suggestion changes only its run and leaves the other suggestions pending
+
+tests/http/runtogether.test.ts (13)
+  (pass) Every RunTogether endpoint needs a signed-in session > without a session cookie, each endpoint answers 401 and changes nothing
+  (pass) Every RunTogether endpoint needs a signed-in session > a made-up or ended session is refused with 401
+  (pass) Every RunTogether endpoint needs a signed-in session > a session sent in the body instead of the cookie is ignored
+  (pass) Nobody can act as another user > an owner, user, sender, suggester, or decider named in the body is ignored: the session's user acts
+  (pass) Nobody can act as another user > a user can't update, set the flexibility of, or cancel someone else's run
+  (pass) Nobody can act as another user > a suggestion always goes to the run's owner, and only the owner can accept or reject it
+  (pass) Nobody can act as another user > an owner can't suggest a change to their own run, and a run that doesn't exist is refused
+  (pass) Nobody can act as another user > only the recipient can accept or reject a friend request, and only a friend can remove a friendship
+  (pass) Nobody can act as another user > a friend request names an existing username, and can't go to yourself
+  (pass) Signed-in users can do everything they're allowed to > an owner updates, sets the flexibility of, and cancels their own run
+  (pass) Signed-in users can do everything they're allowed to > a friend joins and leaves a run as themselves, and can't join twice
+  (pass) Signed-in users can do everything they're allowed to > a recipient rejects a request, a friend removes a friendship, and a suggester withdraws, while an owner rejects
+  (pass) The Morgan–Jamie journey, with two signed-in accounts > Morgan plans a flexible run, Jamie befriends her, suggests 10:30, and Morgan accepts
+
+tests/http/suggestions.test.ts (8)
+  (pass) Suggesting changes to several details at once > a friend proposes a new meeting point, distance, pace, and description; accepting applies them all and joins them
+  (pass) Suggesting changes to several details at once > a time and a meeting point together are applied together
+  (pass) Suggesting changes to several details at once > the original time-only suggestion, a plain start time, still works
+  (pass) Suggesting changes to several details at once > rejecting leaves the run exactly as it was, and doesn't join the suggester
+  (pass) Invalid and incompatible suggestions are refused safely > an empty change, an unknown field, or a malformed value is refused with 400 and nothing is stored
+  (pass) Invalid and incompatible suggestions are refused safely > a change the run can't take, such as a time outside its window, is refused with 409
+  (pass) Invalid and incompatible suggestions are refused safely > if the owner's edits mean a pending change no longer fits, accepting is refused and nothing changes
+  (pass) Only the right people can suggest and decide > a stranger can't suggest, the owner can't suggest to their own run, and only the owner decides
+
+tests/runChange.test.ts (4)
+  (pass) readRunChange > reads any combination of the five fields, with null for each one left alone
+  (pass) readRunChange > a plain string is a new start time, as suggestions were before
+  (pass) readRunChange > refuses an empty change, an unknown field, or a malformed value
+  (pass) readRunChange > an empty description is a change: it clears the description
+
+tests/web/runs.test.ts (5)
+  (pass) Home and My Runs > Home holds friends' upcoming, active runs I haven't joined, soonest first
+  (pass) Home and My Runs > My Runs holds runs I host or joined: upcoming soonest first, past and canceled latest first
+  (pass) Home and My Runs > no run appears in both Home and My Runs, or in two My Runs sections
+  (pass) Home and My Runs > friends' past and canceled runs I never joined aren't shown anywhere
+  (pass) Home and My Runs > leaving a run moves it from My Runs back to Home
+
+tests/web/session.test.ts (17)
+  (pass) post > answers the body of a success, and the category of a refusal
+  (pass) post > a network failure, the frontend server's UNAVAILABLE, or a non-JSON 5xx is UNREACHABLE
+  (pass) post > sends the body as JSON
+  (pass) restoring the session on page load > a live session cookie restores the signed-in username
+  (pass) restoring the session on page load > no session shows the sign-in screen without an error
+  (pass) restoring the session on page load > a session that ended while signed in shows the sign-in screen with a note
+  (pass) restoring the session on page load > an unreachable backend on load offers a retry, and on a later check keeps the person signed in
+  (pass) signing in with a password > a successful login loads the signed-in user and clears any error
+  (pass) signing in with a password > invalid credentials, a duplicate username, a network error, and the wrong origin each show their sentence
+  (pass) signing out > logout clears the signed-in user
+  (pass) signing out > logging out of a session that already ended still signs out
+  (pass) signing out > an unreachable backend keeps the person signed in and says why
+  (pass) signing in with Commons > start sends the browser to the address the backend answers
+  (pass) signing in with Commons > start shows a sentence and stays when the backend refuses or can't be reached
+  (pass) signing in with Commons > the callback posts the state and code from its address, and signs in
+  (pass) signing in with Commons > a cancelled sign-in posts nothing, and a refused code says to start again
+  (pass) signing in with Commons > a taken Commons username asks for another, which then signs in
+
+tests/web/suggestions-and-notifications.test.ts (6)
+  (pass) Suggesting changes > a draft starts from the run, and proposes only what changed
+  (pass) Suggesting changes > a draft outside the run's window, or with a non-positive distance, says why
+  (pass) Suggesting changes > each proposed detail is shown as current → proposed, and a plain time is a time change
+  (pass) Notification messages > each kind says who did what to which run
+  (pass) Notification messages > a run that's gone is 'a run'
+  (pass) Notification messages > times read briefly
+
+================================================================
+$ bun tests/browser/discovery.browser.ts http://localhost:8091 fresh   (on an emptied database)
+================================================================
+Chrome Chrome/155.0.8059.41, app at http://localhost:8091, phase fresh
+
+[PASS] Morgan signs up with a username and password
+[PASS] with only Morgan's account, Friends says she's the first one here
+[PASS] and lists nobody
+[PASS] Jamie signs up with a username and password
+[PASS] Jamie's People on RunTogether lists Morgan, and not Jamie herself
+[PASS] Morgan's entry offers Add Friend
+[PASS] after Jamie registers, Morgan's list shows Jamie, and not Morgan herself
+[PASS] Jamie sends Morgan a request from the list
+[PASS] Morgan's entry now says Requested
+[PASS] Morgan sees Accept and Decline on Jamie's entry
+[PASS] Morgan accepts
+[PASS] Jamie's entry now says Already friends
+[PASS] and Jamie sees Morgan as Already friends
+[PASS] a search with no match says No users found.
+[PASS] one letter shows no results, only the hint to type more
+[PASS] two or more letters search, ignoring case
+[PASS] and find Morgan
+[PASS] clearing the search shows People on RunTogether again
+[PASS] the discovery answer holds only usernames  ({"people":[{"username":"morgan"}]})
+[PASS] both log out
+
+Summary: 20 passed, 0 failed
+
+================================================================
+Backend restart
+================================================================
+Backend restarted: stopped pid 46890, started pid 47007 on the same test database.
+
+================================================================
+$ bun tests/browser/discovery.browser.ts http://localhost:8091 restarted
+================================================================
+Chrome Chrome/155.0.8059.41, app at http://localhost:8091, phase restarted
+
+[PASS] morgan logs in again with her password after the restart
+[PASS] morgan still sees jamie as Already friends
+[PASS] jamie logs in again with her password after the restart
+[PASS] jamie still sees morgan as Already friends
+[PASS] a wrong password is still refused
+
+Summary: 5 passed, 0 failed
+
+================================================================
+$ bun tests/browser/journey.browser.ts http://localhost:8091
+================================================================
+Chrome Chrome/155.0.8059.41, app at http://localhost:8091
+
+[PASS] morgan signs up and sees RunTogether as morgan-mv8gj61h
+[PASS] jamie signs up and sees RunTogether as jamie-mv8gj61h
+[PASS] the navigation has exactly Home, My Runs, Friends, and Profile  (Home, My Runs, Friends, Profile)
+[PASS] with no friends, Home says to add friends to see their runs
+[PASS] the profile shows the signed-in username and a log out button
+[PASS] the profile has no 'Switch demo user' control
+[PASS] Morgan's new run appears in My Runs › Upcoming, marked Hosting and Flexible
+[PASS] Morgan's own run isn't on her Home
+[PASS] before they're friends, Jamie's home page doesn't list Morgan's run
+[PASS] Jamie's search finds Morgan's account
+[PASS] the search leaves out Jamie herself
+[PASS] Morgan's result offers 'Add Friend'
+[PASS] Jamie sends Morgan a friend request from the result
+[PASS] Morgan's result now says 'Requested'
+[PASS] the Friends tab lists the sent request
+[PASS] a search nobody matches says so
+[PASS] Morgan's Friends tab shows Jamie's incoming request
+[PASS] Jamie's result offers Accept and Decline
+[PASS] Morgan accepts it
+[PASS] Jamie's result now says 'Already friends'
+[PASS] Morgan's friend list shows Jamie
+[PASS] Jamie opens Morgan's run from Home and can join or suggest a change
+[PASS] Jamie suggests 10:30, and it goes to Morgan
+[PASS] Morgan's bell shows an unread notification
+[PASS] it says Jamie suggested a change to her run
+[PASS] clicking it opens the run, and marks it read
+[PASS] Morgan's run page offers Edit run and Cancel run
+[PASS] Morgan sees Jamie's pending suggestion as the current time → 10:30
+[PASS] Morgan accepts it and the run is updated
+[PASS] Morgan's run now starts at 10:30 AM
+[PASS] Jamie is listed as going on Morgan's page
+[PASS] Jamie's bell says Morgan accepted her suggestion
+[PASS] Morgan's run is no longer on Jamie's Home once she has joined
+[PASS] Jamie sees the run at 10:30 AM
+[PASS] as a participant, Jamie can suggest a change or leave, and can't edit or cancel
+[PASS] the edit form is prefilled with the run's details
+[PASS] Morgan saves her changes and sees them on the run page
+[PASS] Jamie sees Morgan's edits: the new meeting point and description
+[PASS] Jamie's preview shows both changes, current → proposed
+[PASS] Jamie sends it
+[PASS] Morgan sees Distance 5 → 6 miles and Pace 9 → 8.5 min/mi
+[PASS] Morgan rejects it, and the run keeps 5 miles at 9 min/mi
+[PASS] Jamie's bell says Morgan updated the run
+[PASS] and that Morgan declined her suggestion
+[PASS] the newest notification is listed first
+[PASS] marking all read clears the unread count
+[PASS] after a reload, the notifications are still listed, and still read
+[PASS] Jamie leaves the run
+[PASS] after leaving, Jamie can join again
+[PASS] the run is back on Jamie's Home
+[PASS] Jamie joins it again
+[PASS] canceling asks for confirmation first
+[PASS] choosing 'Keep run' closes the dialog and leaves the run active
+[PASS] confirming cancels the run, and the page says so
+[PASS] a canceled run offers no actions
+[PASS] Jamie's bell says Morgan canceled the run
+[PASS] clicking it opens the canceled run
+[PASS] Jamie sees the canceled run with a banner and no actions
+[PASS] the canceled run's card is marked Canceled and looks different
+[PASS] Upcoming is empty and says so
+[PASS] aged only Jamie's sessions to 8 days unused  (1 session(s))
+[PASS] Jamie's next request answers 401, which shows the sign-in screen
+[PASS] ...with 'Your session has ended'
+[PASS] Morgan, whose session is live, stays signed in
+[PASS] Morgan logs out from Profile
+
+Summary: 65 passed, 0 failed
+
+================================================================
+$ bun tests/browser/auth.browser.ts http://localhost:8091
+================================================================
+Chrome Chrome/155.0.8059.41, app at http://localhost:8091
+
+[PASS] signed out, the page shows the sign-in screen
+[PASS] the session cookie is not set before signing in
+[PASS] an unknown username shows 'incorrect'
+[PASS] creating an account shows RunTogether with the username
+[PASS] Chrome stored the __Host- session cookie  (domain=localhost path=/)
+[PASS] the session cookie is Secure
+[PASS] the session cookie is HttpOnly
+[PASS] the session cookie is SameSite=Strict
+[PASS] the session cookie is host-only on path / (the __Host- rules)
+[PASS] the session cookie persists across browser restarts (has an expiry)
+[PASS] page scripts can't read the session cookie
+[PASS] after a reload, /api/auth/me restores the session
+[PASS] logging out shows the sign-in screen
+[PASS] logging out deletes the session cookie
+[PASS] after logging out and reloading, the sign-in screen stays
+[PASS] registering a taken username shows 'taken'
+[PASS] a wrong password shows 'incorrect'
+[PASS] logging in with the right password shows RunTogether
+[PASS] aged the session to 8 days unused  (4 sessions)
+[PASS] an expired session returns to sign-in when the tab is shown again
+[PASS] ...with 'Your session has ended'
+[PASS] an expired session shows sign-in after a reload
+[PASS] offline, re-checking the session keeps the person signed in
+[PASS] offline, logging out says the backend can't be reached
+[PASS] ...and keeps the session cookie
+[PASS] a backend that can't be reached on load offers 'Try again'
+[PASS] 'Try again' restores the session once the backend answers
+[PASS] the Commons button goes to https://class.mit-sdg.dev/connect  (https://class.mit-sdg.dev/connect?app=http%3A%2F%2Flocalhost%3A8091&state=…&code_challenge=…&code_challenge_method=S256)
+[PASS] the redirect names this app's origin (http://localhost:8091) as the app Commons returns to  (app=http://localhost:8091)
+[PASS] the redirect carries a state and an S256 PKCE challenge
+[PASS] the request to Commons carries no Referer
+[PASS] Chrome stored the __Host- sign-in cookie, Secure, HttpOnly, SameSite=Strict
+[PASS] the callback page is served with Referrer-Policy: no-referrer  (header=no-referrer)
+[PASS] the callback page also sets the policy in a meta tag
+[PASS] a code Commons didn't issue shows 'didn't work'
+[PASS] the callback removes the code from the address bar
+[PASS] a refused callback starts no session
+[PASS] a sign-in cancelled on Commons says 'cancelled'
+
+Summary: 38 passed, 0 failed
+
+================================================================
+$ bun tests/browser/profile.browser.ts http://localhost:8091
+================================================================
+username (32 chars): maximilian_alexander_8gjn2nxxxxx
+
+320px {"mainDisplay":"block","mainWidth":320,"scroll":320,"order":[24,92,306,471],"cardWidth":288,"statWidths":[137,137],"statsSameRow":true,"nameFits":true,"statKidsInside":true,"statKidsApart":true,"logoutFits":true,"bellRight":true}
+[PASS] 320px: the page is a vertical stack (main is a block, not a flex row)
+[PASS] 320px: heading, card, statistics, and Account section go top to bottom
+[PASS] 320px: no horizontal scrolling
+[PASS] 320px: content width 320px fits the screen and stops at 640px
+[PASS] 320px: the profile card spans the content width
+[PASS] 320px: the two statistic cards are equal and at least 120px wide (137, 137)
+[PASS] 320px: the long username wraps inside the card instead of overflowing
+[PASS] 320px: each statistic's number, label, and arrow fit and don't overlap
+[PASS] 320px: "Log out of …" fits its row
+[PASS] 320px: the bell sits at the right of the header, as on other tabs
+390px {"mainDisplay":"block","mainWidth":390,"scroll":390,"order":[24,92,257,422],"cardWidth":358,"statWidths":[172,172],"statsSameRow":true,"nameFits":true,"statKidsInside":true,"statKidsApart":true,"logoutFits":true,"bellRight":true}
+[PASS] 390px: the page is a vertical stack (main is a block, not a flex row)
+[PASS] 390px: heading, card, statistics, and Account section go top to bottom
+[PASS] 390px: no horizontal scrolling
+[PASS] 390px: content width 390px fits the screen and stops at 640px
+[PASS] 390px: the profile card spans the content width
+[PASS] 390px: the two statistic cards are equal and at least 120px wide (172, 172)
+[PASS] 390px: the long username wraps inside the card instead of overflowing
+[PASS] 390px: each statistic's number, label, and arrow fit and don't overlap
+[PASS] 390px: "Log out of …" fits its row
+[PASS] 390px: the bell sits at the right of the header, as on other tabs
+768px {"mainDisplay":"block","mainWidth":640,"scroll":768,"order":[32,116,238,403],"cardWidth":592,"statWidths":[289,289],"statsSameRow":true,"nameFits":true,"statKidsInside":true,"statKidsApart":true,"logoutFits":true,"bellRight":true}
+[PASS] 768px: the page is a vertical stack (main is a block, not a flex row)
+[PASS] 768px: heading, card, statistics, and Account section go top to bottom
+[PASS] 768px: no horizontal scrolling
+[PASS] 768px: content width 640px fits the screen and stops at 640px
+[PASS] 768px: the profile card spans the content width
+[PASS] 768px: the two statistic cards are equal and at least 120px wide (289, 289)
+[PASS] 768px: the long username wraps inside the card instead of overflowing
+[PASS] 768px: each statistic's number, label, and arrow fit and don't overlap
+[PASS] 768px: "Log out of …" fits its row
+[PASS] 768px: the bell sits at the right of the header, as on other tabs
+1280px {"mainDisplay":"block","mainWidth":640,"scroll":1280,"order":[32,116,238,403],"cardWidth":592,"statWidths":[289,289],"statsSameRow":true,"nameFits":true,"statKidsInside":true,"statKidsApart":true,"logoutFits":true,"bellRight":true}
+[PASS] 1280px: the page is a vertical stack (main is a block, not a flex row)
+[PASS] 1280px: heading, card, statistics, and Account section go top to bottom
+[PASS] 1280px: no horizontal scrolling
+[PASS] 1280px: content width 640px fits the screen and stops at 640px
+[PASS] 1280px: the profile card spans the content width
+[PASS] 1280px: the two statistic cards are equal and at least 120px wide (289, 289)
+[PASS] 1280px: the long username wraps inside the card instead of overflowing
+[PASS] 1280px: each statistic's number, label, and arrow fit and don't overlap
+[PASS] 1280px: "Log out of …" fits its row
+[PASS] 1280px: the bell sits at the right of the header, as on other tabs
+[PASS] the Friends statistic opens the Friends tab
+[PASS] the Upcoming runs statistic opens My Runs
+[PASS] the bell on Profile shows the unread count
+[PASS] the bell opens its list on Profile
+[PASS] a notification opens its run from Profile
+[PASS] Log out still signs out
+
+Summary: 46 passed, 0 failed
+

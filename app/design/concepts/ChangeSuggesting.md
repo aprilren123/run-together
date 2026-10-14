@@ -18,7 +18,7 @@ external Event
   The event that may be changed.
 
 external Change
-  The proposed change to the event.
+  The proposed change to the event, which may adjust several of its details at once. ChangeSuggesting stores it and returns it on acceptance without interpreting it.
 
 SuggestionStatus is PENDING or ACCEPTED or REJECTED or WITHDRAWN
 ```

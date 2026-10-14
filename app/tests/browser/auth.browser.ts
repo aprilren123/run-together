@@ -19,6 +19,7 @@ const {
   send,
   listeners,
   evaluate,
+  waitFor,
   open,
   text,
   hasText,
@@ -27,6 +28,15 @@ const {
   cookie,
   submitPasswordForm,
 } = await chrome.newPage();
+
+/** Opens the Profile tab and clicks its log out button. */
+async function logOutFromProfile() {
+  await evaluate(
+    "[...document.querySelectorAll('.nav-item')].find((b) => b.innerText.includes('Profile')).click()",
+  );
+  await waitFor("document.querySelector('.profile-page .profile-menu-item')");
+  await evaluate("document.querySelector('.profile-page .profile-menu-item').click()");
+}
 
 const SESSION = "__Host-runtogether-session";
 const SIGN_IN = "__Host-runtogether-sign-in";
@@ -86,7 +96,7 @@ try {
   check("after a reload, /api/auth/me restores the session", await appShown(username));
 
   // Log out
-  await evaluate("document.querySelector('.account-chip button').click()");
+  await logOutFromProfile();
   check("logging out shows the sign-in screen", await signInShown());
   check("logging out deletes the session cookie", (await cookie(SESSION)) === undefined);
   await open(`${APP}/`);
@@ -134,7 +144,7 @@ try {
   await evaluate("document.dispatchEvent(new Event('visibilitychange'))");
   await Bun.sleep(300);
   check("offline, re-checking the session keeps the person signed in", await appShown(username));
-  await evaluate("document.querySelector('.account-chip button').click()");
+  await logOutFromProfile();
   check(
     "offline, logging out says the backend can't be reached",
     await hasText("Can't reach RunTogether."),
@@ -166,7 +176,7 @@ try {
   );
   check("'Try again' restores the session once the backend answers", await appShown(username));
   await send("Fetch.disable");
-  await evaluate("document.querySelector('.account-chip button').click()");
+  await logOutFromProfile();
   await signInShown();
 
   // Commons: the button's redirect, intercepted before it reaches Commons

@@ -7,12 +7,15 @@ export class CannotWithdraw extends Error {}
 
 type SuggestionStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
 
+/** ChangeSuggesting never looks inside a change: it stores the change it is given and returns it on acceptance. */
+type Change = unknown;
+
 interface Suggestion {
   _id: string;
   suggester: string;
   decider: string;
   event: string;
-  change: string;
+  change: Change;
   status: SuggestionStatus;
 }
 
@@ -32,7 +35,7 @@ export class ChangeSuggestingConcept {
     suggester: string;
     decider: string;
     event: string;
-    change: string;
+    change: Change;
   }) {
     if (suggester === decider) {
       throw new SameUser("A user cannot suggest a change to themselves.");
@@ -52,16 +55,18 @@ export class ChangeSuggestingConcept {
     return { suggestion };
   }
 
-  async accept({ decider, suggestion }: { decider: string; suggestion: string }) {
-    const existing = await this.suggestions.findOne({
-      _id: suggestion,
-    });
+  // Each decision changes the suggestion only while it is still PENDING, in one step, so of two decisions
+  // made at once (two accepts, or an accept and a reject or withdrawal) exactly one takes effect.
 
-    if (!existing || existing.decider !== decider || existing.status !== "PENDING") {
+  async accept({ decider, suggestion }: { decider: string; suggestion: string }) {
+    const existing = await this.suggestions.findOneAndUpdate(
+      { _id: suggestion, decider, status: "PENDING" },
+      { $set: { status: "ACCEPTED" } },
+    );
+
+    if (!existing) {
       throw new CannotAccept("This suggestion cannot be accepted.");
     }
-
-    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "ACCEPTED" } });
 
     return {
       event: existing.event,
@@ -71,29 +76,27 @@ export class ChangeSuggestingConcept {
   }
 
   async reject({ decider, suggestion }: { decider: string; suggestion: string }) {
-    const existing = await this.suggestions.findOne({
-      _id: suggestion,
-    });
+    const { matchedCount } = await this.suggestions.updateOne(
+      { _id: suggestion, decider, status: "PENDING" },
+      { $set: { status: "REJECTED" } },
+    );
 
-    if (!existing || existing.decider !== decider || existing.status !== "PENDING") {
+    if (matchedCount === 0) {
       throw new CannotReject("This suggestion cannot be rejected.");
     }
-
-    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "REJECTED" } });
 
     return { suggestion };
   }
 
   async withdraw({ suggester, suggestion }: { suggester: string; suggestion: string }) {
-    const existing = await this.suggestions.findOne({
-      _id: suggestion,
-    });
+    const { matchedCount } = await this.suggestions.updateOne(
+      { _id: suggestion, suggester, status: "PENDING" },
+      { $set: { status: "WITHDRAWN" } },
+    );
 
-    if (!existing || existing.suggester !== suggester || existing.status !== "PENDING") {
+    if (matchedCount === 0) {
       throw new CannotWithdraw("This suggestion cannot be withdrawn.");
     }
-
-    await this.suggestions.updateOne({ _id: suggestion }, { $set: { status: "WITHDRAWN" } });
 
     return { suggestion };
   }

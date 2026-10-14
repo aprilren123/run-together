@@ -8,7 +8,11 @@ let answer: () => Response | Promise<Response> = () => Response.json({});
 const commons = Bun.serve({
   port: 0,
   async fetch(request) {
-    requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+    requests.push({
+      method: request.method,
+      path: new URL(request.url).pathname,
+      body: await request.json(),
+    });
     return answer();
   },
 });
@@ -29,7 +33,9 @@ function provider(timeout?: number) {
 
 describe("CommonsProvider", () => {
   test("the sign-in address names the app by its origin, carries the nonce as state, and the verifier's S256 challenge", () => {
-    const address = new URL(provider().address({ nonce: "n0nce-n0nce-n0nce-n0nce", verifier: RFC_7636.verifier }));
+    const address = new URL(
+      provider().address({ nonce: "n0nce-n0nce-n0nce-n0nce", verifier: RFC_7636.verifier }),
+    );
     expect(address.origin).toBe(commons.url.origin);
     expect(address.pathname).toBe("/connect");
     expect([...address.searchParams]).toEqual([
@@ -41,7 +47,13 @@ describe("CommonsProvider", () => {
   });
 
   test("redeeming posts exactly the code, the app, and the verifier, and returns Commons' user as the subject", async () => {
-    answer = () => Response.json({ user: "u7f3", username: "sam", displayName: "Sam", email: "sam@example.edu" });
+    answer = () =>
+      Response.json({
+        user: "u7f3",
+        username: "sam",
+        displayName: "Sam",
+        email: "sam@example.edu",
+      });
     expect(await provider().redeem({ code: "the-code", verifier: RFC_7636.verifier })).toEqual({
       subject: "u7f3",
       username: "sam",
@@ -63,7 +75,9 @@ describe("CommonsProvider", () => {
     ]) {
       answer = refusal;
       requests.length = 0;
-      expect(await provider().redeem({ code: "the-code", verifier: RFC_7636.verifier })).toBeUndefined();
+      expect(
+        await provider().redeem({ code: "the-code", verifier: RFC_7636.verifier }),
+      ).toBeUndefined();
       expect(requests).toHaveLength(1);
     }
   });
@@ -74,13 +88,20 @@ describe("CommonsProvider", () => {
       return Response.json({ user: "u7f3", username: "sam" });
     };
     const started = Date.now();
-    expect(await provider(50).redeem({ code: "the-code", verifier: RFC_7636.verifier })).toBeUndefined();
+    expect(
+      await provider(50).redeem({ code: "the-code", verifier: RFC_7636.verifier }),
+    ).toBeUndefined();
     expect(Date.now() - started).toBeLessThan(400);
     expect(requests).toHaveLength(1);
   });
 
   test("a Commons that can't be reached returns undefined", async () => {
-    const unreachable = new CommonsProvider({ origin: "http://127.0.0.1:9", app: "http://localhost:5173" });
-    expect(await unreachable.redeem({ code: "the-code", verifier: RFC_7636.verifier })).toBeUndefined();
+    const unreachable = new CommonsProvider({
+      origin: "http://127.0.0.1:9",
+      app: "http://localhost:5173",
+    });
+    expect(
+      await unreachable.redeem({ code: "the-code", verifier: RFC_7636.verifier }),
+    ).toBeUndefined();
   });
 });

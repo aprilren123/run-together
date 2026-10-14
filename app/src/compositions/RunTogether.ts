@@ -1,6 +1,16 @@
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
-import { concepts } from "../concepts.ts";
-import { each, form, former, no, reaction, view, when, where } from "@mit-sdg/sync-engine/language";
+import { computations, concepts } from "../concepts.ts";
+import {
+  compute,
+  each,
+  form,
+  former,
+  no,
+  reaction,
+  view,
+  when,
+  where,
+} from "@mit-sdg/sync-engine/language";
 
 const { RunPlanning, Joining, ChangeSuggesting, Friending, Registering, Sessioning } = concepts;
 
@@ -15,11 +25,40 @@ const friends = view("(user) is friends with (other)", ({ user, other }) => [
   where(Friending._friendships({}).is({ user1: other, user2: user })),
 ]).holds();
 
-/** (viewer) can see (run): it is their own, or its owner is their accepted friend. */
+// An endpoint branch that ends in a concept action must read the request's run or suggestion through a
+// view that takes it as an input. Read straight from `_all`, the engine binds the name afresh from every
+// row, so one request would join, or suggest a change to, every friend's run at once.
+
+/** The owner and status of (run). */
+const runInfo = view("the owner and status of (run)", ({ run }, { owner, status }) =>
+  where(RunPlanning._all({}).is({ run, owner, status })),
+);
+
+/** Who made (suggestion), who decides it, and the run it is for. */
+const suggestionInfo = view(
+  "the people and run of (suggestion)",
+  ({ suggestion }, { suggester, decider, event, change }) =>
+    where(ChangeSuggesting._all({}).is({ suggestion, suggester, decider, event, change })),
+);
+
+/** (user) joined (run). */
+const joined = view("(user) joined (run)", ({ user, run }) =>
+  where(Joining._all({}).is({ user, event: run })),
+).holds();
+
+/** (viewer) can see (run): it is their own, its owner is their accepted friend, or they joined it. */
 const canSee = view("(viewer) can see (run)", ({ viewer, run }, _output, { owner }) => [
   where(RunPlanning._all({}).is({ run, owner: viewer })),
   where(RunPlanning._all({}).is({ run, owner }), friends({ user: viewer, other: owner })),
+  where(joined({ user: viewer, run })),
 ]).holds();
+
+/** The owner of (run) is (user)'s accepted friend, so (user) may join it or suggest a change to it. */
+const friendsRun = view(
+  "(user) is a friend of the owner of (run)",
+  ({ user, run }, _output, { owner }) =>
+    where(RunPlanning._all({}).is({ run, owner }), friends({ user, other: owner })),
+).holds();
 
 /** (user) suggested (suggestion), or decides on it. */
 const partyTo = view("(user) is party to (suggestion)", ({ user, suggestion }) => [
@@ -48,6 +87,7 @@ const RunList = former(
       maxDistance,
       minPace,
       maxPace,
+      status,
     },
   ) =>
     form({
@@ -66,6 +106,7 @@ const RunList = former(
           maxDistance,
           minPace,
           maxPace,
+          status,
         }),
       )
         .where(
@@ -86,6 +127,7 @@ const RunList = former(
           maxDistance,
           minPace,
           maxPace,
+          status,
         }),
     }),
 );
@@ -117,7 +159,7 @@ const CreateRun = endpoint(
 
 const UpdateRun = endpoint(
   "/runs/update",
-  ({ session, owner, run, startTime, distance, pace, location }) =>
+  ({ session, owner, run, startTime, distance, pace, location, details }) =>
     receive({
       session,
       run,
@@ -125,6 +167,7 @@ const UpdateRun = endpoint(
       distance,
       pace,
       location,
+      details,
     })
       .then(Sessioning.use({ session }).responds({ subject: owner }))
       .then(
@@ -135,6 +178,7 @@ const UpdateRun = endpoint(
           distance,
           pace,
           location,
+          details,
         }).responds({ run }),
       )
       .then(respond({ run })),
@@ -146,6 +190,7 @@ const UpdateRun = endpoint(
         distance: null,
         pace: null,
         location: null,
+        details: null,
       },
     },
   },
@@ -223,20 +268,22 @@ const ListRuns = endpoint(
 
 const ParticipantList = former(
   "the participant list for (viewer)",
-  ({ viewer }, { participation, user, username, event }) =>
+  // The row's event is bound as `run`, the name canSee takes: passing `run: event` to the view here
+  // read every run the viewer can see, pairing each participant with all of them.
+  ({ viewer }, { participation, user, username, run }) =>
     form({
       participations: each(
         Joining._all({}).is({
           participation,
           user,
-          event,
+          event: run,
         }),
       )
-        .where(canSee({ viewer, run: event }), Registering._username({ user }).is({ username }))
+        .where(canSee({ viewer, run }), Registering._username({ user }).is({ username }))
         .form({
           participation,
           user: username,
-          event,
+          event: run,
         }),
     }),
 );
@@ -258,7 +305,10 @@ const JoinRun = endpoint(
     receive({ session, event })
       .then(Sessioning.use({ session }).responds({ subject: user }))
       .then(
-        where(RunPlanning._all({}).is({ run: event, owner }), friends({ user, other: owner }))
+        where(
+          runInfo({ run: event }).is({ owner, status: "ACTIVE" }),
+          friends({ user, other: owner }),
+        )
           .then(
             Joining.join({
               user,
@@ -267,10 +317,19 @@ const JoinRun = endpoint(
           )
           .then(respond({ participation }))
           .named("friend"),
-        where(RunPlanning._all({}).is({ run: event, owner: user }))
+        where(
+          runInfo({ run: event }).is({ owner, status: "CANCELED" }),
+          friends({ user, other: owner }),
+        )
+          .then(respond({ error: "RUN_CANCELED" }))
+          .named("canceled"),
+        where(runInfo({ run: event }).is({ owner: user }))
           .then(respond({ error: "OWN_RUN" }))
           .named("owner"),
-        where(no(canSee({ viewer: user, run: event })))
+        where(
+          no(friendsRun({ user, run: event })),
+          no(RunPlanning._all({}).is({ run: event, owner: user })),
+        )
           .then(respond({ error: "RUN_NOT_FOUND" }))
           .named("hidden"),
       ),
@@ -518,14 +577,35 @@ const SuggestionList = former(
 
 const SuggestChange = endpoint(
   "/suggestions/create",
-  ({ session, suggester, decider, event, change, suggestion }) =>
+  ({
+    session,
+    suggester,
+    decider,
+    event,
+    change,
+    suggestion,
+    startTime,
+    location,
+    distance,
+    pace,
+    details,
+  }) =>
     receive({ session, event, change })
       .then(Sessioning.use({ session }).responds({ subject: suggester }))
       .then(
-        // The decider is always the run's owner, never a user the request names, and only their friends suggest.
+        // The decider is always the run's owner, never a user the request names, and only their friends
+        // suggest. The change must be well formed and fit the run as it is now, or it is refused unstored.
         where(
-          RunPlanning._all({}).is({ run: event, owner: decider }),
+          runInfo({ run: event }).is({ owner: decider, status: "ACTIVE" }),
           friends({ user: suggester, other: decider }),
+          compute(
+            computations.readRunChange,
+            { change },
+            { valid: true, startTime, location, distance, pace, details },
+          ),
+          RunPlanning._fits({ run: event, startTime, distance, pace, location, details }).is({
+            fits: true,
+          }),
         )
           .then(
             ChangeSuggesting.suggest({
@@ -537,10 +617,40 @@ const SuggestChange = endpoint(
           )
           .then(respond({ suggestion }))
           .named("friend"),
-        where(RunPlanning._all({}).is({ run: event, owner: suggester }))
+        where(
+          runInfo({ run: event }).is({ owner: decider, status: "ACTIVE" }),
+          friends({ user: suggester, other: decider }),
+          compute(
+            computations.readRunChange,
+            { change },
+            { valid: true, startTime, location, distance, pace, details },
+          ),
+          RunPlanning._fits({ run: event, startTime, distance, pace, location, details }).is({
+            fits: false,
+          }),
+        )
+          .then(respond({ error: "CHANGE_DOESNT_FIT" }))
+          .named("doesnt-fit"),
+        where(
+          runInfo({ run: event }).is({ owner: decider, status: "ACTIVE" }),
+          friends({ user: suggester, other: decider }),
+          compute(computations.readRunChange, { change }, { valid: false }),
+        )
+          .then(respond({ error: "INVALID_CHANGE" }))
+          .named("invalid"),
+        where(
+          runInfo({ run: event }).is({ owner: decider, status: "CANCELED" }),
+          friends({ user: suggester, other: decider }),
+        )
+          .then(respond({ error: "RUN_CANCELED" }))
+          .named("canceled"),
+        where(runInfo({ run: event }).is({ owner: suggester }))
           .then(respond({ error: "OWN_RUN" }))
           .named("owner"),
-        where(no(canSee({ viewer: suggester, run: event })))
+        where(
+          no(friendsRun({ user: suggester, run: event })),
+          no(RunPlanning._all({}).is({ run: event, owner: suggester })),
+        )
           .then(respond({ error: "RUN_NOT_FOUND" }))
           .named("hidden"),
       ),
@@ -553,20 +663,79 @@ const SuggestChange = endpoint(
 
 const AcceptSuggestion = endpoint(
   "/suggestions/accept",
-  ({ session, decider, suggestion, event, change, suggester }) =>
+  ({
+    session,
+    decider,
+    suggestion,
+    event,
+    change,
+    suggester,
+    startTime,
+    location,
+    distance,
+    pace,
+    details,
+  }) =>
     receive({ session, suggestion })
       .then(Sessioning.use({ session }).responds({ subject: decider }))
       .then(
-        // Accepting moves the run and adds the suggester to it, so they must still be the decider's friend.
+        // Accepting changes the run and adds the suggester to it, so they must still be the decider's
+        // friend, the run must still be on, and the change must still fit the run as it is now.
         where(
-          ChangeSuggesting._all({}).is({ suggestion, suggester, decider }),
+          suggestionInfo({ suggestion }).is({ suggester, decider, event, change }),
           friends({ user: decider, other: suggester }),
+          runInfo({ run: event }).is({ status: "ACTIVE" }),
+          compute(
+            computations.readRunChange,
+            { change },
+            { valid: true, startTime, location, distance, pace, details },
+          ),
+          RunPlanning._fits({ run: event, startTime, distance, pace, location, details }).is({
+            fits: true,
+          }),
         )
           .then(ChangeSuggesting.accept({ decider, suggestion }).responds({ event, change }))
           .then(respond({ event, change }))
           .named("friend"),
         where(
-          ChangeSuggesting._all({}).is({ suggestion, suggester, decider }),
+          suggestionInfo({ suggestion }).is({ suggester, decider, event, change }),
+          friends({ user: decider, other: suggester }),
+          runInfo({ run: event }).is({ status: "ACTIVE" }),
+          compute(
+            computations.readRunChange,
+            { change },
+            { valid: true, startTime, location, distance, pace, details },
+          ),
+          RunPlanning._fits({ run: event, startTime, distance, pace, location, details }).is({
+            fits: false,
+          }),
+        )
+          .then(respond({ error: "CHANGE_DOESNT_FIT" }))
+          .named("doesnt-fit"),
+        where(
+          suggestionInfo({ suggestion }).is({ suggester, decider, event, change }),
+          friends({ user: decider, other: suggester }),
+          runInfo({ run: event }).is({ status: "ACTIVE" }),
+          compute(computations.readRunChange, { change }, { valid: false }),
+        )
+          .then(respond({ error: "INVALID_CHANGE" }))
+          .named("invalid"),
+        where(
+          suggestionInfo({ suggestion }).is({ suggester, decider, event }),
+          friends({ user: decider, other: suggester }),
+          runInfo({ run: event }).is({ status: "CANCELED" }),
+        )
+          .then(respond({ error: "RUN_CANCELED" }))
+          .named("canceled"),
+        where(
+          suggestionInfo({ suggestion }).is({ suggester, decider, event }),
+          friends({ user: decider, other: suggester }),
+          no(RunPlanning._all({}).is({ run: event })),
+        )
+          .then(respond({ error: "RUN_NOT_FOUND" }))
+          .named("no-run"),
+        where(
+          suggestionInfo({ suggestion }).is({ suggester, decider }),
           no(friends({ user: decider, other: suggester })),
         )
           .then(respond({ error: "NOT_FRIENDS" }))
@@ -584,22 +753,48 @@ const AcceptSuggestion = endpoint(
   },
 );
 
-const AcceptedSuggestionUpdatesRun = reaction(({ decider, event, change, suggester, suggestion }) =>
-  when(
-    ChangeSuggesting.accept({ decider, suggestion }).responds({
-      event,
-      change,
-      suggester,
-    }),
-  ).then(
-    RunPlanning.update({
-      owner: decider,
-      run: event,
-      startTime: change,
-    }),
-  ),
+/** Applies every field of the accepted change in one update, so it is applied whole or not at all. */
+const AcceptedSuggestionUpdatesRun = reaction(
+  ({
+    decider,
+    event,
+    change,
+    suggester,
+    suggestion,
+    startTime,
+    location,
+    distance,
+    pace,
+    details,
+  }) =>
+    when(
+      ChangeSuggesting.accept({ decider, suggestion }).responds({
+        event,
+        change,
+        suggester,
+      }),
+    )
+      .where(
+        compute(
+          computations.readRunChange,
+          { change },
+          { valid: true, startTime, location, distance, pace, details },
+        ),
+      )
+      .then(
+        RunPlanning.update({
+          owner: decider,
+          run: event,
+          startTime,
+          distance,
+          pace,
+          location,
+          details,
+        }),
+      ),
 );
 
+/** Joins the suggester to the run, unless they already joined it, so Joining never refuses here. */
 const AcceptedSuggestionJoinsSuggester = reaction(
   ({ decider, event, change, suggester, suggestion }) =>
     when(
@@ -608,12 +803,14 @@ const AcceptedSuggestionJoinsSuggester = reaction(
         change,
         suggester,
       }),
-    ).then(
-      Joining.join({
-        user: suggester,
-        event,
-      }),
-    ),
+    )
+      .where(no(Joining._all({}).is({ user: suggester, event })))
+      .then(
+        Joining.join({
+          user: suggester,
+          event,
+        }),
+      ),
 );
 
 const RejectSuggestion = endpoint(
@@ -669,7 +866,11 @@ const ListSuggestions = endpoint(
 
 export const composition = {
   friends,
+  runInfo,
+  suggestionInfo,
+  joined,
   canSee,
+  friendsRun,
   partyTo,
   inFriendship,
   inRequest,

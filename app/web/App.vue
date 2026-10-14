@@ -2,34 +2,40 @@
 import { computed, onMounted, ref, watch } from "vue";
 import {
   Home,
-  CalendarDays,
+  CalendarCheck,
   Users,
   User,
   ChevronRight,
   ArrowLeft,
-  UserRoundPlus,
   MapPin,
   Clock3,
   Route,
   LogOut,
+  Pencil,
+  CircleX,
 } from "lucide-vue-next";
 import { useSession } from "./auth/session.ts";
-
-interface Run {
-  run: string;
-  owner: string;
-  startTime: string;
-  distance: number;
-  pace: number;
-  location: string;
-  details?: string | null;
-  earliestTime?: string | null;
-  latestTime?: string | null;
-  minDistance?: number | null;
-  maxDistance?: number | null;
-  minPace?: number | null;
-  maxPace?: number | null;
-}
+import RunCard from "./RunCard.vue";
+import NotificationBell from "./NotificationBell.vue";
+import { createNotifications } from "./notifications.ts";
+import {
+  changeRows,
+  draftError,
+  draftFrom,
+  proposedChange,
+  type ChangeDraft,
+} from "./suggestions.ts";
+import {
+  arrangeRuns,
+  formatRunDate,
+  formatRunTime,
+  isCanceled,
+  isFlexible,
+  isUpcoming,
+  mapsUrl,
+  runTitle,
+  type Run,
+} from "./runs.ts";
 
 interface Friendship {
   friendship: string;
@@ -49,14 +55,50 @@ async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   if (response.status === 401) sessionEnded();
   return response;
 }
+// Notifications are read when the app opens and on every page change; the bell shows the unread count.
+const notifications = createNotifications((path, body = {}) =>
+  apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
+);
+const notice = ref("");
+let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+function showNotice(message: string) {
+  notice.value = message;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => (notice.value = ""), 5000);
+}
+
+/** Opens the run a notification is about, if the user can still see it. */
+async function openRunById(runId: string) {
+  await loadRuns();
+  const run = runs.value.find((r) => r.run === runId);
+  if (run) await openRun(run);
+  else showNotice("That run is no longer available to you.");
+}
+
 async function logOut() {
   signingOut.value = true;
   await signOut();
   signingOut.value = false;
 }
-const currentPage = ref<"home" | "create" | "profile" | "community" | "calendar" | "run-details">(
-  "home",
-);
+type Tab = "home" | "my-runs" | "friends" | "profile";
+const currentPage = ref<Tab | "create" | "run-details">("home");
+/** The tab the run page, or the create or edit form, goes back to. */
+const returnTo = ref<Tab>("home");
+
+/** Opens a tab with fresh data, so every list shows the latest version of each run. */
+async function go(tab: Tab) {
+  currentPage.value = tab;
+  returnTo.value = tab;
+  friendMessage.value = "";
+  if (tab === "friends") void searchPeople();
+  if (tab === "friends" || tab === "profile") await refreshFriends();
+  void notifications.load();
+  if (tab !== "friends") await Promise.all([loadRuns(), loadParticipants()]);
+}
 
 const runs = ref<Run[]>([]);
 const selectedRunId = ref<string | null>(null);
@@ -75,16 +117,6 @@ const selectedParticipants = computed(() => {
     ),
   ];
 });
-function isFlexible(run: Run): boolean {
-  return [
-    run.earliestTime,
-    run.latestTime,
-    run.minDistance,
-    run.maxDistance,
-    run.minPace,
-    run.maxPace,
-  ].some((v) => v !== null && v !== undefined);
-}
 async function loadParticipants() {
   runDetailsError.value = "";
   try {
@@ -104,8 +136,15 @@ async function openRun(run: Run) {
   selectedRunId.value = run.run;
   currentPage.value = "run-details";
   runActionMessage.value = "";
-  await Promise.all([loadParticipants(), loadSuggestions()]);
+  runDetailsError.value = "";
+  await Promise.all([loadRuns(), loadParticipants(), loadSuggestions()]);
 }
+
+/** What the signed-in user may do with the open run. */
+const isOwner = computed(() => selectedRun.value?.owner === currentUser.value);
+const runIsOpen = computed(
+  () => !!selectedRun.value && !isCanceled(selectedRun.value) && isUpcoming(selectedRun.value),
+);
 
 interface Suggestion {
   suggestion: string;
@@ -117,7 +156,14 @@ interface Suggestion {
 }
 const suggestions = ref<Suggestion[]>([]);
 const suggestionOpen = ref(false);
-const suggestedTime = ref("");
+/** The values the suggester is proposing, starting from the run's own. */
+const draft = ref<ChangeDraft>({
+  startTime: "",
+  location: "",
+  distance: null,
+  pace: null,
+  details: "",
+});
 const suggestionError = ref("");
 const runActionMessage = ref("");
 const runActionBusy = ref(false);
@@ -127,18 +173,15 @@ const isJoined = computed(() =>
 const pendingSuggestions = computed(() =>
   suggestions.value.filter((s) => s.event === selectedRunId.value && s.status === "PENDING"),
 );
-const suggestionTimeError = computed(() => {
-  const run = selectedRun.value;
-  if (!run || !suggestedTime.value) return "Select a start time.";
-  if (suggestedTime.value === run.startTime) return "Choose a different time to suggest.";
-  if (!run.earliestTime || !run.latestTime)
-    return "The host has not enabled time changes for this run.";
-  if (suggestedTime.value < run.earliestTime || suggestedTime.value > run.latestTime) {
-    return `Choose a time between ${formatRunTime(run.earliestTime)} and ${formatRunTime(run.latestTime)}.`;
-  }
-  return "";
-});
-async function postAction(path: string, body: Record<string, string>) {
+const draftProblem = computed(() =>
+  selectedRun.value ? draftError(selectedRun.value, draft.value) : "",
+);
+const draftRows = computed(() =>
+  selectedRun.value
+    ? changeRows(selectedRun.value, proposedChange(selectedRun.value, draft.value))
+    : [],
+);
+async function postAction(path: string, body: Record<string, unknown>) {
   const response = await apiFetch(`/api/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -159,24 +202,30 @@ async function loadSuggestions() {
 }
 function openSuggestion() {
   if (!selectedRun.value) return;
-  suggestedTime.value = selectedRun.value.startTime.slice(0, 16);
+  draft.value = draftFrom(selectedRun.value);
   suggestionError.value = "";
   suggestionOpen.value = true;
 }
 async function sendSuggestion() {
-  if (!selectedRun.value || suggestionTimeError.value || runActionBusy.value) return;
+  if (!selectedRun.value || draftProblem.value || runActionBusy.value) return;
   suggestionError.value = "";
   runActionBusy.value = true;
   try {
     await postAction("suggestions/create", {
       event: selectedRun.value.run,
-      change: suggestedTime.value,
+      change: proposedChange(selectedRun.value, draft.value),
     });
     suggestionOpen.value = false;
     runActionMessage.value = `Suggestion sent to ${selectedRun.value.owner}.`;
     await loadSuggestions();
   } catch (error) {
-    suggestionError.value = error instanceof Error ? error.message : "Could not send suggestion.";
+    const message = error instanceof Error ? error.message : "";
+    suggestionError.value =
+      message === "CONFLICT"
+        ? "This run can't take that change. Check its time, distance, and pace ranges."
+        : message === "INVALID_REQUEST"
+          ? "One of those values isn't valid. Check each detail and try again."
+          : message || "Could not send suggestion.";
   } finally {
     runActionBusy.value = false;
   }
@@ -195,6 +244,40 @@ async function joinSelectedRun() {
     runActionBusy.value = false;
   }
 }
+async function leaveSelectedRun() {
+  if (!selectedRun.value || runActionBusy.value || !isJoined.value) return;
+  runActionBusy.value = true;
+  runDetailsError.value = "";
+  try {
+    await postAction("runs/leave", { event: selectedRun.value.run });
+    await loadParticipants();
+    runActionMessage.value = "You left this run.";
+  } catch (error) {
+    runDetailsError.value = error instanceof Error ? error.message : "Could not leave run.";
+  } finally {
+    runActionBusy.value = false;
+  }
+}
+
+// Canceling asks for confirmation first, since it can't be undone.
+const confirmCancelOpen = ref(false);
+async function cancelSelectedRun() {
+  if (!selectedRun.value || runActionBusy.value) return;
+  runActionBusy.value = true;
+  runDetailsError.value = "";
+  try {
+    await postAction("runs/cancel", { run: selectedRun.value.run });
+    confirmCancelOpen.value = false;
+    await loadRuns();
+    runActionMessage.value = "Run canceled. Everyone who joined will see it as canceled.";
+  } catch (error) {
+    confirmCancelOpen.value = false;
+    runDetailsError.value = error instanceof Error ? error.message : "Could not cancel run.";
+  } finally {
+    runActionBusy.value = false;
+  }
+}
+
 async function decideSuggestion(suggestion: string, action: "accept" | "reject") {
   if (runActionBusy.value) return;
   runActionBusy.value = true;
@@ -208,9 +291,11 @@ async function decideSuggestion(suggestion: string, action: "accept" | "reject")
     runDetailsError.value =
       error instanceof Error && error.message === "FORBIDDEN"
         ? "You're no longer friends with this runner, so their suggestion can't be accepted."
-        : error instanceof Error
-          ? error.message
-          : "Could not process suggestion.";
+        : error instanceof Error && error.message === "CONFLICT"
+          ? "This suggestion no longer fits the run as it is now. Reject it, or edit the run first."
+          : error instanceof Error
+            ? error.message
+            : "Could not process suggestion.";
   } finally {
     runActionBusy.value = false;
   }
@@ -223,7 +308,6 @@ interface FriendRequest {
   recipient: string;
 }
 const requests = ref<FriendRequest[]>([]);
-const profileSection = ref<"overview" | "friends" | "requests" | "add">("overview");
 const friendName = ref("");
 const friendError = ref("");
 const friendMessage = ref("");
@@ -241,43 +325,16 @@ const outgoingRequests = computed(() =>
   requests.value.filter((r) => r.sender === currentUser.value),
 );
 
-// Show upcoming runs created by the current user or accepted friends.
-// This is prototype-level filtering; the backend still returns all runs.
-const visibleRuns = computed(() =>
-  runs.value
-    .filter(
-      (run) =>
-        (run.owner === currentUser.value || myFriends.value.includes(run.owner)) &&
-        new Date(run.startTime).getTime() >= Date.now(),
-    )
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+// The backend lists only runs the user may see: their own, their friends', and ones they joined.
+// Home and My Runs split those so that no run appears in both.
+const joinedRuns = computed(
+  () =>
+    new Set(participations.value.filter((p) => p.user === currentUser.value).map((p) => p.event)),
 );
-
-function formatRunDate(start: string): string {
-  return new Date(start).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatRunTime(start: string): string {
-  return new Date(start).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function runTitle(start: string): string {
-  const hour = new Date(start).getHours();
-  if (hour < 11) return "Morning run";
-  if (hour < 16) return "Afternoon run";
-  return "Evening run";
-}
-
-function mapsUrl(meetingPoint: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(meetingPoint)}`;
-}
+const arranged = computed(() => arrangeRuns(runs.value, currentUser.value, joinedRuns.value));
+const myRunsSection = ref<"upcoming" | "past" | "canceled">("upcoming");
+const myRunsShown = computed(() => arranged.value[myRunsSection.value]);
+const roleIn = (run: Run) => (run.owner === currentUser.value ? "hosting" : "joined");
 
 async function loadFriends() {
   friendError.value = "";
@@ -316,13 +373,6 @@ async function refreshFriends() {
   await Promise.all([loadFriends(), loadRequests()]);
 }
 
-async function openProfile() {
-  currentPage.value = "profile";
-  profileSection.value = "overview";
-  friendMessage.value = "";
-  await refreshFriends();
-}
-
 async function friendAction(action: "accept" | "reject", request: string) {
   friendError.value = "";
   friendMessage.value = "";
@@ -344,9 +394,11 @@ async function friendAction(action: "accept" | "reject", request: string) {
 
 // Find friends: search registered usernames. The search answers usernames only; whether each person is
 // already a friend or has a pending request comes from the signed-in user's own friend and request lists.
+// With an empty box, the same search lists people on RunTogether, so the page is never blank.
 const MIN_SEARCH = 2;
 const searchResults = ref<string[]>([]);
-const searchedFor = ref("");
+/** The text the shown results are for: "" for the people list, or null before anything has loaded. */
+const searchedFor = ref<string | null>(null);
 const searching = ref(false);
 let searches = 0;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -356,9 +408,9 @@ async function searchPeople() {
   const text = friendName.value.trim();
   const search = ++searches;
   friendError.value = "";
-  if (text.length < MIN_SEARCH) {
+  if (text.length > 0 && text.length < MIN_SEARCH) {
     searchResults.value = [];
-    searchedFor.value = "";
+    searchedFor.value = null;
     return;
   }
   searching.value = true;
@@ -441,6 +493,110 @@ const minPace = ref<number | null>(null);
 const maxPace = ref<number | null>(null);
 
 const errorMessage = ref("");
+/** The run being edited, or null when the form creates a new run. */
+const editingRunId = ref<string | null>(null);
+const editingRun = computed(() => runs.value.find((r) => r.run === editingRunId.value) ?? null);
+
+function resetRunForm() {
+  startTime.value = "";
+  distance.value = null;
+  pace.value = null;
+  location.value = "";
+  details.value = "";
+  hasFlexibility.value = false;
+  earliestTime.value = "";
+  latestTime.value = "";
+  minDistance.value = null;
+  maxDistance.value = null;
+  minPace.value = null;
+  maxPace.value = null;
+  errorMessage.value = "";
+}
+
+function openCreate() {
+  editingRunId.value = null;
+  resetRunForm();
+  currentPage.value = "create";
+}
+
+function openEdit() {
+  const run = selectedRun.value;
+  if (!run) return;
+  resetRunForm();
+  editingRunId.value = run.run;
+  startTime.value = run.startTime.slice(0, 16);
+  distance.value = run.distance;
+  pace.value = run.pace;
+  location.value = run.location;
+  details.value = run.details ?? "";
+  currentPage.value = "create";
+}
+
+function closeRunForm() {
+  currentPage.value = editingRunId.value ? "run-details" : returnTo.value;
+  editingRunId.value = null;
+}
+
+/** A change that falls outside the run's flexibility ranges would be refused, so say so before sending. */
+const editRangeError = computed(() => {
+  const run = editingRun.value;
+  if (!run) return "";
+  if (run.earliestTime && run.latestTime && startTime.value) {
+    if (startTime.value < run.earliestTime || startTime.value > run.latestTime) {
+      return `Choose a start time within this run's window, ${formatRunTime(run.earliestTime)} – ${formatRunTime(run.latestTime)}.`;
+    }
+  }
+  const d = distance.value;
+  if (run.minDistance != null && run.maxDistance != null && d !== null) {
+    if (d < run.minDistance || d > run.maxDistance) {
+      return `Choose a distance within this run's range, ${run.minDistance}–${run.maxDistance} miles.`;
+    }
+  }
+  const p = pace.value;
+  if (run.minPace != null && run.maxPace != null && p !== null) {
+    if (p < run.minPace || p > run.maxPace) {
+      return `Choose a pace within this run's range, ${run.minPace}–${run.maxPace} min/mi.`;
+    }
+  }
+  return "";
+});
+
+async function saveEdit() {
+  const run = editingRun.value;
+  if (!run || distance.value === null || pace.value === null) return;
+  if (editRangeError.value) {
+    errorMessage.value = editRangeError.value;
+    return;
+  }
+  errorMessage.value = "";
+  try {
+    await postAction("runs/update", {
+      run: run.run,
+      startTime: startTime.value,
+      distance: distance.value,
+      pace: pace.value,
+      location: location.value,
+      details: details.value,
+    });
+    await loadRuns();
+    editingRunId.value = null;
+    currentPage.value = "run-details";
+    runActionMessage.value = "Run updated. Everyone who joined sees the new details.";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    errorMessage.value =
+      message === "INVALID_REQUEST"
+        ? "Those details aren't valid for this run. Check the distance, pace, and flexibility ranges."
+        : message === "CONFLICT"
+          ? "This run has been canceled, so it can't be edited."
+          : message || "Could not save changes.";
+  }
+}
+
+async function submitRunForm() {
+  if (editingRunId.value) await saveEdit();
+  else await createRun();
+}
 
 const runDate = computed(() => startTime.value.split("T")[0]);
 
@@ -552,123 +708,109 @@ async function createRun() {
       }
     }
 
-    startTime.value = "";
-    distance.value = null;
-    pace.value = null;
-    location.value = "";
-    details.value = "";
-
-    hasFlexibility.value = false;
-    earliestTime.value = "";
-    latestTime.value = "";
-    minDistance.value = null;
-    maxDistance.value = null;
-    minPace.value = null;
-    maxPace.value = null;
-
-    await loadRuns();
-    currentPage.value = "home";
+    resetRunForm();
+    await go("my-runs");
+    myRunsSection.value = "upcoming";
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Something went wrong.";
   }
 }
 
 onMounted(async () => {
-  await Promise.all([loadRuns(), refreshFriends()]);
+  await Promise.all([loadRuns(), loadParticipants(), refreshFriends(), notifications.load()]);
 });
 </script>
 
 <template>
-  <!-- Home page -->
+  <!-- Home: friends' upcoming runs to discover and join -->
   <main v-if="currentPage === 'home'">
     <header>
       <h1>RunTogether</h1>
-      <div class="account-chip">
-        <span class="small-avatar">{{ signedInAs.charAt(0).toUpperCase() }}</span>
-        <span class="account-name" data-testid="signed-in-username">{{ signedInAs }}</span>
-        <button class="secondary-button" type="button" :disabled="signingOut" @click="logOut">
-          <LogOut :size="16" class="inline-icon" /> Log out
-        </button>
+      <div class="header-actions">
+        <div class="account-chip">
+          <span class="small-avatar">{{ signedInAs.charAt(0).toUpperCase() }}</span>
+          <span class="account-name" data-testid="signed-in-username">{{ signedInAs }}</span>
+        </div>
+        <NotificationBell :notifications="notifications" @open="openRunById" />
       </div>
     </header>
     <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
 
-    <div class="home-heading">
-      <h2>Upcoming runs</h2>
-      <button class="create-run-button" type="button" @click="currentPage = 'create'">
-        + Create a Run
-      </button>
+    <button class="create-run-button create-run-cta" type="button" @click="openCreate">
+      + Create a Run
+    </button>
+
+    <h2>Runs from friends</h2>
+    <div v-if="arranged.home.length === 0" class="empty-state">
+      <template v-if="myFriends.length === 0">
+        <p><strong>Add friends to see their runs here.</strong></p>
+        <p class="muted-text">Find people you run with by their username.</p>
+        <button class="secondary-button" type="button" @click="go('friends')">Find friends</button>
+      </template>
+      <template v-else>
+        <p><strong>No new runs from your friends.</strong></p>
+        <p class="muted-text">
+          Runs you host or join are in My Runs. Create a run to invite your friends.
+        </p>
+      </template>
     </div>
-
-    <p v-if="visibleRuns.length === 0" class="muted-text">
-      No upcoming runs from you or your friends. Create a run to get started!
-    </p>
-
     <div v-else class="run-feed">
-      <article
-        v-for="run in visibleRuns"
-        :key="run.run"
-        class="run-card clickable-run-card"
-        tabindex="0"
-        role="button"
-        :aria-label="`View ${run.owner}'s run`"
-        @click="openRun(run)"
-        @keydown.enter="openRun(run)"
-        @keydown.space.prevent="openRun(run)"
-      >
-        <div class="run-card-owner">
-          <span class="small-avatar">{{ run.owner.charAt(0).toUpperCase() }}</span>
-          <div>
-            <strong>{{ run.owner }}</strong>
-            <p class="run-card-date">{{ formatRunDate(run.startTime) }}</p>
-          </div>
-          <span v-if="run.owner === currentUser" class="your-run-badge">Your run</span>
-        </div>
-
-        <div class="run-title-row">
-          <h3>{{ runTitle(run.startTime) }}</h3>
-          <span class="flex-badge" :class="isFlexible(run) ? 'flexible' : 'fixed'">{{
-            isFlexible(run) ? "Flexible" : "Fixed"
-          }}</span>
-        </div>
-        <div class="run-card-detail">
-          <Route :size="17" />
-          <span
-            >{{ run.distance }} {{ run.distance === 1 ? "mile" : "miles" }} ·
-            {{ run.pace }} min/mi</span
-          >
-        </div>
-        <div class="run-card-detail">
-          <Clock3 :size="17" />
-          <span>{{ formatRunTime(run.startTime) }}</span>
-        </div>
-        <div class="run-card-detail">
-          <MapPin :size="17" />
-          <span>Meet at {{ run.location }}</span>
-        </div>
-        <a
-          class="run-map-link"
-          :href="mapsUrl(run.location)"
-          target="_blank"
-          rel="noopener noreferrer"
-          @click.stop
-        >
-          View meeting point on Google Maps
-          <ChevronRight :size="16" />
-        </a>
-      </article>
+      <RunCard v-for="run in arranged.home" :key="run.run" :run="run" @open="openRun(run)" />
     </div>
   </main>
 
-  <!-- Create run page -->
+  <!-- My Runs: runs I host or joined -->
+  <main v-else-if="currentPage === 'my-runs'" class="my-runs-page">
+    <header>
+      <h1>My Runs</h1>
+      <NotificationBell :notifications="notifications" @open="openRunById" />
+    </header>
+    <div class="segmented" role="tablist" aria-label="My runs">
+      <button
+        v-for="section in ['upcoming', 'past', 'canceled'] as const"
+        :key="section"
+        type="button"
+        role="tab"
+        class="segment"
+        :class="{ active: myRunsSection === section }"
+        :aria-selected="myRunsSection === section"
+        @click="myRunsSection = section"
+      >
+        {{ section.charAt(0).toUpperCase() + section.slice(1) }}
+        <span class="segment-count">{{ arranged[section].length }}</span>
+      </button>
+    </div>
+    <div v-if="myRunsShown.length === 0" class="empty-state">
+      <template v-if="myRunsSection === 'upcoming'">
+        <p><strong>No upcoming runs yet.</strong></p>
+        <p class="muted-text">Create a run, or join one of your friends' runs from Home.</p>
+        <button class="create-run-button" type="button" @click="openCreate">+ Create a Run</button>
+      </template>
+      <p v-else-if="myRunsSection === 'past'" class="muted-text">
+        Runs you hosted or joined will appear here after they happen.
+      </p>
+      <p v-else class="muted-text">No canceled runs.</p>
+    </div>
+    <div v-else class="run-feed">
+      <RunCard
+        v-for="run in myRunsShown"
+        :key="run.run"
+        :run="run"
+        :role="roleIn(run)"
+        @open="openRun(run)"
+      />
+    </div>
+  </main>
+
+  <!-- Create or edit a run -->
   <main v-else-if="currentPage === 'create'" class="create-page">
     <div class="create-header">
-      <button class="back-button" type="button" @click="currentPage = 'home'">←</button>
+      <button class="back-button" type="button" aria-label="Back" @click="closeRunForm">←</button>
 
-      <h1>Create a run</h1>
+      <h1>{{ editingRunId ? "Edit run" : "Create a run" }}</h1>
     </div>
 
-    <form class="create-form" @submit.prevent="createRun">
+    <form class="create-form" @submit.prevent="submitRunForm">
       <label>
         Start time
         <input v-model="startTime" type="datetime-local" required />
@@ -716,7 +858,7 @@ onMounted(async () => {
       </a>
 
       <label>
-        Details (optional)
+        Description (optional)
         <textarea
           v-model="details"
           rows="4"
@@ -725,7 +867,11 @@ onMounted(async () => {
         ></textarea>
       </label>
 
-      <section class="flexibility-section">
+      <p v-if="editingRun && isFlexible(editingRun)" class="field-hint">
+        This run's flexibility ranges stay the same, so the new details need to fit within them.
+      </p>
+
+      <section v-if="!editingRunId" class="flexibility-section">
         <div class="flexibility-heading">
           <div>
             <strong>Set flexibility (optional)</strong>
@@ -786,23 +932,21 @@ onMounted(async () => {
         {{ errorMessage }}
       </p>
 
-      <p v-if="flexibilityError" class="form-error">
+      <p v-if="flexibilityError && !editingRunId" class="form-error">
         {{ flexibilityError }}
       </p>
+      <p v-if="editRangeError" class="form-error">{{ editRangeError }}</p>
 
-      <button class="save-run-button" type="submit">Save run</button>
+      <button class="save-run-button" type="submit">
+        {{ editingRunId ? "Save changes" : "Save run" }}
+      </button>
     </form>
   </main>
 
   <!-- Run details -->
   <main v-else-if="currentPage === 'run-details' && selectedRun" class="run-details-page">
     <div class="details-header">
-      <button
-        class="back-button"
-        type="button"
-        aria-label="Back to home"
-        @click="currentPage = 'home'"
-      >
+      <button class="back-button" type="button" aria-label="Back" @click="go(returnTo)">
         <ArrowLeft :size="25" />
       </button>
       <span class="small-avatar">{{ selectedRun.owner.charAt(0).toUpperCase() }}</span>
@@ -813,7 +957,10 @@ onMounted(async () => {
         </p>
       </div>
     </div>
-    <div class="run-title-row">
+    <p v-if="isCanceled(selectedRun)" class="canceled-banner" role="status">
+      <CircleX :size="18" /> This run was canceled by {{ isOwner ? "you" : selectedRun.owner }}.
+    </p>
+    <div class="run-title-row" :class="{ 'canceled-title': isCanceled(selectedRun) }">
       <h1>{{ runTitle(selectedRun.startTime) }}</h1>
       <span class="flex-badge" :class="isFlexible(selectedRun) ? 'flexible' : 'fixed'">{{
         isFlexible(selectedRun) ? "Flexible" : "Fixed"
@@ -861,29 +1008,73 @@ onMounted(async () => {
       </div>
     </section>
     <p v-if="runActionMessage" class="success-message" role="status">{{ runActionMessage }}</p>
-    <section v-if="selectedRun.owner !== currentUser" class="run-actions">
-      <button
-        class="save-run-button"
-        type="button"
-        :disabled="runActionBusy || isJoined"
-        @click="joinSelectedRun"
-      >
-        {{ isJoined ? "Joined" : "Join run" }}
-      </button>
-      <button class="outline-action-button" type="button" @click="openSuggestion">
-        Suggest a change
-      </button>
+
+    <!-- What the signed-in user can do with this run -->
+    <section v-if="runIsOpen" class="run-actions" aria-label="Run actions">
+      <template v-if="isOwner">
+        <button class="save-run-button" type="button" :disabled="runActionBusy" @click="openEdit">
+          <Pencil :size="17" class="inline-icon" /> Edit run
+        </button>
+        <button
+          class="danger-button"
+          type="button"
+          :disabled="runActionBusy"
+          @click="confirmCancelOpen = true"
+        >
+          Cancel run
+        </button>
+      </template>
+      <template v-else-if="isJoined">
+        <button class="outline-action-button" type="button" @click="openSuggestion">
+          Suggest a change
+        </button>
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="runActionBusy"
+          @click="leaveSelectedRun"
+        >
+          Leave run
+        </button>
+      </template>
+      <template v-else>
+        <button
+          class="save-run-button"
+          type="button"
+          :disabled="runActionBusy"
+          @click="joinSelectedRun"
+        >
+          Join run
+        </button>
+        <button class="outline-action-button" type="button" @click="openSuggestion">
+          Suggest a change
+        </button>
+      </template>
     </section>
-    <section v-else-if="pendingSuggestions.length" class="run-details-section">
+    <p v-else-if="!isCanceled(selectedRun)" class="muted-text">This run has already happened.</p>
+
+    <section v-if="isOwner && runIsOpen && pendingSuggestions.length" class="run-details-section">
       <h2>Pending suggestions</h2>
       <div
         v-for="suggestion in pendingSuggestions"
         :key="suggestion.suggestion"
         class="suggestion-item"
       >
-        <div>
-          <strong>{{ suggestion.suggester }}</strong> suggests
-          {{ formatRunTime(suggestion.change) }}
+        <div class="suggestion-summary">
+          <p>
+            <strong>{{ suggestion.suggester }}</strong> suggests
+            {{ changeRows(selectedRun, suggestion.change).length === 1 ? "a change" : "changes" }}:
+          </p>
+          <dl class="change-rows">
+            <div v-for="row in changeRows(selectedRun, suggestion.change)" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd>
+                <span class="change-from">{{ row.from }}</span>
+                <span aria-label="to"> → </span>
+                <strong class="change-to">{{ row.to }}</strong>
+              </dd>
+            </div>
+          </dl>
         </div>
         <div class="suggestion-buttons">
           <button
@@ -906,128 +1097,19 @@ onMounted(async () => {
       </div>
     </section>
     <section class="run-details-section">
-      <h2>Details</h2>
-      <p class="description-text">{{ selectedRun.details || "No additional details provided." }}</p>
+      <h2>Description</h2>
+      <p class="description-text">{{ selectedRun.details || "No description provided." }}</p>
     </section>
   </main>
 
-  <!-- Community: public discovery needs visibility and location support in the backend -->
-  <main v-else-if="currentPage === 'community'" class="community-page">
+  <!-- Friends: find people, answer requests, and see friends -->
+  <main v-else-if="currentPage === 'friends'" class="friends-page">
     <header>
-      <h1>Community</h1>
-    </header>
-    <h2>Discover nearby runs</h2>
-    <p class="muted-text">
-      Public runs in your area will appear here once location-based discovery and public-run
-      visibility are supported.
-    </p>
-  </main>
-
-  <!-- Calendar placeholder -->
-  <main v-else-if="currentPage === 'calendar'" class="calendar-page">
-    <h1>Calendar</h1>
-    <p class="muted-text">Your scheduled runs will appear here.</p>
-  </main>
-
-  <!-- Profile and nested friend management screens -->
-  <main v-else-if="currentPage === 'profile'" class="profile-page">
-    <header>
-      <button
-        v-if="profileSection !== 'overview'"
-        class="back-button"
-        type="button"
-        @click="profileSection = 'overview'"
-        aria-label="Back to profile"
-      >
-        <ArrowLeft :size="24" />
-      </button>
-      <h1>
-        {{
-          profileSection === "overview"
-            ? "Profile"
-            : profileSection === "friends"
-              ? "Friends"
-              : profileSection === "requests"
-                ? "Friend Requests"
-                : "Add Friends"
-        }}
-      </h1>
+      <h1>Friends</h1>
+      <NotificationBell :notifications="notifications" @open="openRunById" />
     </header>
 
-    <template v-if="profileSection === 'overview'">
-      <section class="profile-card">
-        <div class="profile-avatar">{{ currentUser.charAt(0) }}</div>
-        <div>
-          <h2 class="profile-name">{{ currentUser }}</h2>
-          <p class="muted-text">RunTogether member</p>
-        </div>
-      </section>
-
-      <div class="profile-stats">
-        <button class="stat-card" @click="profileSection = 'friends'">
-          <strong>{{ myFriends.length }}</strong>
-          <span>{{ myFriends.length === 1 ? "Friend" : "Friends" }}</span>
-          <ChevronRight :size="18" />
-        </button>
-        <div class="stat-card stat-static">
-          <strong>{{ runs.filter((r) => r.owner === currentUser).length }}</strong>
-          <span>Runs planned</span>
-        </div>
-      </div>
-
-      <button class="profile-menu-item" @click="profileSection = 'requests'">
-        <span
-          >Friend Requests
-          <span v-if="incomingRequests.length" class="request-count">{{
-            incomingRequests.length
-          }}</span></span
-        >
-        <ChevronRight :size="20" />
-      </button>
-      <button class="profile-menu-item" @click="profileSection = 'add'">
-        <span><UserRoundPlus :size="19" class="inline-icon" /> Add Friends</span>
-        <ChevronRight :size="20" />
-      </button>
-      <button class="profile-menu-item" type="button" :disabled="signingOut" @click="logOut">
-        <span><LogOut :size="19" class="inline-icon" /> Log out of {{ signedInAs }}</span>
-      </button>
-      <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
-    </template>
-
-    <section v-else-if="profileSection === 'friends'" class="friends-section">
-      <p v-if="myFriends.length === 0" class="muted-text">No friends yet.</p>
-      <ul v-else class="friend-list">
-        <li v-for="friend in myFriends" :key="friend" class="friend-row">
-          <span class="small-avatar">{{ friend.charAt(0) }}</span
-          >{{ friend }}
-        </li>
-      </ul>
-    </section>
-
-    <section v-else-if="profileSection === 'requests'" class="friends-section">
-      <p v-if="friendError" class="form-error">{{ friendError }}</p>
-      <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
-      <h2>Incoming requests</h2>
-      <p v-if="incomingRequests.length === 0" class="muted-text">No pending requests.</p>
-      <div v-for="request in incomingRequests" :key="request.request" class="request-row">
-        <strong>{{ request.sender }}</strong>
-        <div class="request-actions">
-          <button class="create-run-button" @click="friendAction('accept', request.request)">
-            Accept
-          </button>
-          <button class="secondary-button" @click="friendAction('reject', request.request)">
-            Decline
-          </button>
-        </div>
-      </div>
-      <h2>Sent requests</h2>
-      <p v-if="outgoingRequests.length === 0" class="muted-text">No pending sent requests.</p>
-      <div v-for="request in outgoingRequests" :key="request.request" class="request-row">
-        To {{ request.recipient }} · Pending
-      </div>
-    </section>
-
-    <section v-else class="friends-section">
+    <section class="friends-section">
       <h2>Find friends</h2>
       <form class="add-friend-form" role="search" @submit.prevent="searchPeople">
         <input
@@ -1040,14 +1122,35 @@ onMounted(async () => {
         />
         <button class="create-run-button" type="submit">Search</button>
       </form>
-      <p class="field-hint">Type at least {{ MIN_SEARCH }} letters of a username.</p>
+      <p class="field-hint">
+        Type at least {{ MIN_SEARCH }} letters of a username, or browse the people below.
+      </p>
       <p v-if="friendError" class="form-error">{{ friendError }}</p>
       <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
-      <p v-if="searching" class="muted-text" role="status">Searching…</p>
-      <p v-else-if="searchedFor && searchResults.length === 0" class="muted-text">
-        No one's username contains “{{ searchedFor }}”.
+      <h3 v-if="searchedFor !== null" class="results-heading">
+        {{ searchedFor === "" ? "People on RunTogether" : `Results for “${searchedFor}”` }}
+      </h3>
+      <p v-if="searching && searchResults.length === 0" class="muted-text" role="status">
+        Searching…
       </p>
-      <ul v-if="searchResults.length" class="search-results" aria-label="Search results">
+      <div
+        v-else-if="searchedFor === '' && searchResults.length === 0"
+        class="empty-state"
+        data-testid="no-people"
+      >
+        <p><strong>You're the first one here.</strong></p>
+        <p class="muted-text">
+          Invite your friends to sign up for RunTogether, then find them here by username.
+        </p>
+      </div>
+      <p v-else-if="searchedFor && searchResults.length === 0" class="muted-text">
+        No users found.
+      </p>
+      <ul
+        v-if="searchResults.length"
+        class="search-results"
+        :aria-label="searchedFor ? 'Search results' : 'People on RunTogether'"
+      >
         <li
           v-for="name in searchResults"
           :key="name"
@@ -1086,9 +1189,96 @@ onMounted(async () => {
         </li>
       </ul>
     </section>
+
+    <section class="friends-section">
+      <h2>
+        Friend requests
+        <span v-if="incomingRequests.length" class="request-count">{{
+          incomingRequests.length
+        }}</span>
+      </h2>
+      <p v-if="incomingRequests.length === 0 && outgoingRequests.length === 0" class="muted-text">
+        No pending requests.
+      </p>
+      <div v-for="request in incomingRequests" :key="request.request" class="request-row">
+        <span class="search-result-name"
+          ><span class="small-avatar">{{ request.sender.charAt(0).toUpperCase() }}</span
+          >{{ request.sender }}</span
+        >
+        <div class="request-actions">
+          <button class="create-run-button" @click="friendAction('accept', request.request)">
+            Accept
+          </button>
+          <button class="secondary-button" @click="friendAction('reject', request.request)">
+            Decline
+          </button>
+        </div>
+      </div>
+      <div v-for="request in outgoingRequests" :key="request.request" class="request-row">
+        <span class="search-result-name"
+          ><span class="small-avatar">{{ request.recipient.charAt(0).toUpperCase() }}</span
+          >{{ request.recipient }}</span
+        >
+        <span class="flex-badge fixed">Requested</span>
+      </div>
+    </section>
+
+    <section class="friends-section">
+      <h2>Your friends ({{ myFriends.length }})</h2>
+      <div v-if="myFriends.length === 0" class="empty-state">
+        <p><strong>No friends yet.</strong></p>
+        <p class="muted-text">Search above for people you run with to see and join their runs.</p>
+      </div>
+      <ul v-else class="friend-list" aria-label="Your friends">
+        <li v-for="friend in myFriends" :key="friend" class="friend-row">
+          <span class="small-avatar">{{ friend.charAt(0).toUpperCase() }}</span
+          >{{ friend }}
+        </li>
+      </ul>
+    </section>
   </main>
 
-  <!-- Prefilled suggestion modal: backend currently supports start-time changes only -->
+  <!-- Profile: account and logout -->
+  <main v-else-if="currentPage === 'profile'" class="profile-page">
+    <header>
+      <h1>Profile</h1>
+      <NotificationBell :notifications="notifications" @open="openRunById" />
+    </header>
+    <section class="profile-card">
+      <div class="profile-avatar" aria-hidden="true">
+        {{ currentUser.charAt(0).toUpperCase() }}
+      </div>
+      <div class="profile-identity">
+        <h2 class="profile-name">{{ currentUser }}</h2>
+        <p class="muted-text">Signed in as @{{ signedInAs }}</p>
+      </div>
+    </section>
+
+    <div class="profile-stats">
+      <button class="stat-card" type="button" @click="go('friends')">
+        <strong>{{ myFriends.length }}</strong>
+        <span>{{ myFriends.length === 1 ? "Friend" : "Friends" }}</span>
+        <ChevronRight :size="18" />
+      </button>
+      <button class="stat-card" type="button" @click="go('my-runs')">
+        <strong>{{ arranged.upcoming.length }}</strong>
+        <span>Upcoming {{ arranged.upcoming.length === 1 ? "run" : "runs" }}</span>
+        <ChevronRight :size="18" />
+      </button>
+    </div>
+
+    <section class="profile-section" aria-labelledby="account-title">
+      <h2 id="account-title">Account</h2>
+      <button class="profile-menu-item" type="button" :disabled="signingOut" @click="logOut">
+        <span class="menu-label"
+          ><LogOut :size="19" aria-hidden="true" /><span>Log out of {{ signedInAs }}</span></span
+        >
+      </button>
+      <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
+    </section>
+  </main>
+
+  <!-- Suggest a change: any of the run's time, meeting point, distance, pace, and description -->
   <div
     v-if="suggestionOpen && selectedRun"
     class="suggestion-backdrop"
@@ -1112,45 +1302,106 @@ onMounted(async () => {
         </button>
       </div>
       <p class="muted-text">
-        Propose a new start time to join this run. Your suggestion will be sent to
-        {{ selectedRun.owner }}.
+        Propose new details for this run. {{ selectedRun.owner }} will see what you'd change, and if
+        they accept, the run is updated and you'll be going.
       </p>
       <form class="suggestion-form" @submit.prevent="sendSuggestion">
         <label
           >Start time
           <input
-            v-model="suggestedTime"
+            v-model="draft.startTime"
             type="datetime-local"
             required
             :min="selectedRun.earliestTime || undefined"
             :max="selectedRun.latestTime || undefined"
           />
         </label>
-        <p v-if="suggestionTimeError" class="form-error" role="alert">{{ suggestionTimeError }}</p>
-        <p v-else class="field-hint">Within the host's allowed time window.</p>
+        <p v-if="selectedRun.earliestTime && selectedRun.latestTime" class="field-hint">
+          Between {{ formatRunTime(selectedRun.earliestTime) }} and
+          {{ formatRunTime(selectedRun.latestTime) }}.
+        </p>
         <label
-          >Distance (currently unchanged)
-          <input :value="selectedRun.distance + ' miles'" disabled />
+          >Meeting point
+          <input v-model="draft.location" type="text" maxlength="200" required />
         </label>
+        <div class="suggestion-pair">
+          <label
+            >Distance (miles)
+            <input v-model.number="draft.distance" type="number" min="0" step="0.1" required />
+          </label>
+          <label
+            >Pace (min/mi)
+            <input v-model.number="draft.pace" type="number" min="0" step="0.1" required />
+          </label>
+        </div>
         <label
-          >Pace (currently unchanged)
-          <input :value="selectedRun.pace + ' min/mi'" disabled />
+          >Description
+          <textarea v-model="draft.details" rows="3" maxlength="1500"></textarea>
         </label>
-        <label
-          >Location (currently unchanged)
-          <input :value="selectedRun.location" disabled />
-        </label>
+
+        <div v-if="draftRows.length" class="suggestion-preview">
+          <p><strong>You're suggesting</strong></p>
+          <dl class="change-rows">
+            <div v-for="row in draftRows" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd>
+                <span class="change-from">{{ row.from }}</span>
+                <span aria-label="to"> → </span>
+                <strong class="change-to">{{ row.to }}</strong>
+              </dd>
+            </div>
+          </dl>
+        </div>
+        <p v-if="draftProblem" class="form-error" role="alert">{{ draftProblem }}</p>
         <p v-if="suggestionError" class="form-error" role="alert">{{ suggestionError }}</p>
-        <button
-          class="save-run-button"
-          type="submit"
-          :disabled="!!suggestionTimeError || runActionBusy"
-        >
+        <button class="save-run-button" type="submit" :disabled="!!draftProblem || runActionBusy">
           {{ runActionBusy ? "Sending…" : "Send suggestion" }}
         </button>
       </form>
     </div>
   </div>
+
+  <!-- Confirm before canceling: it can't be undone -->
+  <div
+    v-if="confirmCancelOpen && selectedRun"
+    class="suggestion-backdrop"
+    @click.self="confirmCancelOpen = false"
+  >
+    <div
+      class="suggestion-modal confirm-modal"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="cancel-title"
+      aria-describedby="cancel-description"
+    >
+      <h2 id="cancel-title">Cancel this run?</h2>
+      <p id="cancel-description" class="muted-text">
+        {{ runTitle(selectedRun.startTime) }} on {{ formatRunDate(selectedRun.startTime) }} at
+        {{ formatRunTime(selectedRun.startTime) }} will be marked canceled for everyone who joined.
+        This can't be undone.
+      </p>
+      <div class="confirm-buttons">
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="runActionBusy"
+          @click="confirmCancelOpen = false"
+        >
+          Keep run
+        </button>
+        <button
+          class="danger-button"
+          type="button"
+          :disabled="runActionBusy"
+          @click="cancelSelectedRun"
+        >
+          {{ runActionBusy ? "Canceling…" : "Cancel run" }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p v-if="notice" class="toast" role="status">{{ notice }}</p>
 
   <!-- Bottom navigation -->
   <nav
@@ -1158,34 +1409,20 @@ onMounted(async () => {
     class="bottom-nav"
     aria-label="Main navigation"
   >
-    <button
-      class="nav-item"
-      :class="{ active: currentPage === 'home' }"
-      @click="currentPage = 'home'"
-    >
+    <button class="nav-item" :class="{ active: currentPage === 'home' }" @click="go('home')">
       <Home class="nav-icon" />
       <span>Home</span>
     </button>
-
-    <button
-      class="nav-item"
-      :class="{ active: currentPage === 'calendar' }"
-      @click="currentPage = 'calendar'"
-    >
-      <CalendarDays class="nav-icon" />
-      <span>Calendar</span>
+    <button class="nav-item" :class="{ active: currentPage === 'my-runs' }" @click="go('my-runs')">
+      <CalendarCheck class="nav-icon" />
+      <span>My Runs</span>
     </button>
-
-    <button
-      class="nav-item"
-      :class="{ active: currentPage === 'community' }"
-      @click="currentPage = 'community'"
-    >
+    <button class="nav-item" :class="{ active: currentPage === 'friends' }" @click="go('friends')">
       <Users class="nav-icon" />
-      <span>Community</span>
+      <span>Friends</span>
+      <span v-if="incomingRequests.length" class="nav-dot" aria-label="New friend requests"></span>
     </button>
-
-    <button class="nav-item" :class="{ active: currentPage === 'profile' }" @click="openProfile">
+    <button class="nav-item" :class="{ active: currentPage === 'profile' }" @click="go('profile')">
       <User class="nav-icon" />
       <span>Profile</span>
     </button>
