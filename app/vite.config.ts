@@ -7,6 +7,8 @@ const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:3000";
 export default defineConfig({
   root: "web",
   plugins: [vue()],
+  // `bun run build` writes the frontend to app/dist, which the backend serves in production.
+  build: { outDir: "../dist", emptyOutDir: true },
   server: {
     port: 8080,
     // The Commons callback page carries a one-time code in its address, so no page sends a Referer.
