@@ -15,7 +15,7 @@ A social running app that makes it easier for friends to turn the runs they are 
 ### P2
 
 - [User Journey](p2/user-journey.md)
-- [Screen Recording](p2/screen-recording.mov)
+- [Screen Recording](https://youtu.be/rXpD_nYZTWs)
 
 ### P3
 
@@ -23,6 +23,7 @@ A social running app that makes it easier for friends to turn the runs they are 
 - [Saved Test Execution Output](p3/test-results.txt)
 - [Updated User Journey](p3/updated-user-journey.md)
 - [Automated Test Results](p3/test-results.txt)
+- [Updated Screen Recording](https://youtu.be/-aXSI0hk5QA)
 
 ## Testing
 
