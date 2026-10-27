@@ -11,7 +11,7 @@ const { error } = useSession();
   <main class="auth-page">
     <section class="auth-card" aria-labelledby="sign-in-title">
       <div>
-        <h1 id="sign-in-title">RunTogether</h1>
+        <h1 id="sign-in-title" class="brand-mark">RunTogether</h1>
         <p class="muted-text">Log in to plan runs with your friends.</p>
       </div>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>

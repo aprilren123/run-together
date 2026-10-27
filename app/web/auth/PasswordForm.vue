@@ -66,7 +66,7 @@ function switchMode() {
       />
       <span v-if="creating" class="field-hint">8 to 128 characters</span>
     </label>
-    <button type="submit" class="create-run-button" :disabled="working">
+    <button type="submit" class="create-run-button" :disabled="working" :aria-busy="working">
       {{ working ? "Please wait…" : words.action }}
     </button>
     <p class="auth-switch">

@@ -44,13 +44,19 @@ onBeforeUnmount(() => document.removeEventListener("visibilitychange", recheck))
   <App v-else-if="me" :key="me.username" />
   <main v-else-if="unreachable" class="auth-page">
     <section class="auth-card" role="alert">
-      <h1>RunTogether</h1>
+      <h1 class="brand-mark">RunTogether</h1>
       <p>Can't reach RunTogether. Check your connection and try again.</p>
-      <button type="button" class="create-run-button" :disabled="retrying" @click="retry">
+      <button
+        type="button"
+        class="create-run-button"
+        :disabled="retrying"
+        :aria-busy="retrying"
+        @click="retry"
+      >
         Try again
       </button>
     </section>
   </main>
   <SignIn v-else-if="checked" />
-  <main v-else class="auth-page"><p class="muted-text" role="status">Loading…</p></main>
+  <main v-else class="auth-page"><p class="muted-text loading" role="status">Loading…</p></main>
 </template>

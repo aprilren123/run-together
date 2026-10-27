@@ -51,7 +51,9 @@ async function choose() {
           />
           <span class="field-hint">3 to 32 letters, digits, _ or -</span>
         </label>
-        <button type="submit" class="create-run-button" :disabled="working">Continue</button>
+        <button type="submit" class="create-run-button" :disabled="working" :aria-busy="working">
+          Continue
+        </button>
       </div>
     </form>
     <p v-else class="auth-card auth-waiting" role="status">

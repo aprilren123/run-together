@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { Trash2 } from "lucide-vue-next";
+import { MessageCircle, Trash2 } from "lucide-vue-next";
 import {
   MAX_COMMENT,
   canDelete,
@@ -47,10 +47,11 @@ onMounted(() => load(props.run.run));
       {{ isOwner ? "use Edit run." : "use Suggest a change." }}
     </p>
 
-    <p v-if="loading && comments.length === 0" class="muted-text" role="status">
+    <p v-if="loading && comments.length === 0" class="muted-text loading" role="status">
       Loading comments…
     </p>
     <div v-else-if="comments.length === 0 && !error" class="empty-state comments-empty">
+      <span class="empty-icon" aria-hidden="true"><MessageCircle :size="20" /></span>
       <p v-if="canceled" class="muted-text">No one commented on this run.</p>
       <p v-else class="muted-text">No comments yet. Say hi or ask a question!</p>
     </div>
@@ -93,16 +94,19 @@ onMounted(() => load(props.run.run));
         rows="2"
         :maxlength="MAX_COMMENT"
         placeholder="Write a comment…"
+        aria-describedby="comment-count"
+        :aria-invalid="draftProblem ? 'true' : undefined"
         :disabled="posting"
       ></textarea>
       <div class="comment-form-footer">
-        <span class="field-hint" :class="{ 'form-error': draftProblem }">
+        <span id="comment-count" class="field-hint" :class="{ 'form-error': draftProblem }">
           {{ length }}/{{ MAX_COMMENT }}
         </span>
         <button
           type="submit"
           class="create-run-button"
           :disabled="posting || length === 0 || !!draftProblem"
+          :aria-busy="posting"
         >
           {{ posting ? "Posting…" : "Post" }}
         </button>

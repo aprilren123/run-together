@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   Home,
   CalendarCheck,
+  CalendarDays,
+  CalendarPlus,
+  CalendarX,
   Users,
   User,
+  UserMinus,
+  UserPlus,
   ChevronRight,
   ArrowLeft,
   MapPin,
-  Clock3,
+  History,
+  Lightbulb,
   Route,
   LogOut,
   Pencil,
+  Plus,
   CircleX,
+  Search,
+  X,
 } from "lucide-vue-next";
 import { useSession } from "./auth/session.ts";
 import RunCard from "./RunCard.vue";
@@ -107,18 +116,17 @@ const selectedRunId = ref<string | null>(null);
 const participations = ref<{ participation: string; user: string; event: string }[]>([]);
 const runDetailsError = ref("");
 const selectedRun = computed(() => runs.value.find((r) => r.run === selectedRunId.value) ?? null);
-const selectedParticipants = computed(() => {
-  if (!selectedRun.value) return [];
-  return [
-    selectedRun.value.owner,
-    ...new Set(
-      participations.value
-        .filter((p) => p.event === selectedRunId.value)
-        .map((p) => p.user)
-        .filter((u) => u !== selectedRun.value?.owner),
-    ),
-  ];
+/** Who is going to each run: its host first, then everyone who joined, each counted once. */
+const goingByRun = computed(() => {
+  const going = new Map(runs.value.map((run) => [run.run, [run.owner]]));
+  for (const { event, user } of participations.value) {
+    const people = going.get(event);
+    if (people && !people.includes(user)) people.push(user);
+  }
+  return going;
 });
+const goingTo = (run: Run) => goingByRun.value.get(run.run) ?? [run.owner];
+const selectedParticipants = computed(() => (selectedRun.value ? goingTo(selectedRun.value) : []));
 async function loadParticipants() {
   runDetailsError.value = "";
   try {
@@ -263,6 +271,25 @@ async function leaveSelectedRun() {
 
 // Canceling asks for confirmation first, since it can't be undone.
 const confirmCancelOpen = ref(false);
+
+// A dialog takes focus when it opens, so keyboard and screen reader users land in it, and gives focus back
+// to the button that opened it when it closes.
+const suggestionDialog = ref<HTMLElement | null>(null);
+const confirmDialog = ref<HTMLElement | null>(null);
+let openedFrom: HTMLElement | null = null;
+watch(
+  [suggestionOpen, confirmCancelOpen],
+  async ([suggesting, confirming], [wasSuggesting, wasConfirming]) => {
+    if ((suggesting && !wasSuggesting) || (confirming && !wasConfirming)) {
+      openedFrom = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      await nextTick();
+      (suggesting ? suggestionDialog : confirmDialog).value?.focus();
+    } else if (!suggesting && !confirming) {
+      if (openedFrom?.isConnected) openedFrom.focus();
+      openedFrom = null;
+    }
+  },
+);
 async function cancelSelectedRun() {
   if (!selectedRun.value || runActionBusy.value) return;
   runActionBusy.value = true;
@@ -334,7 +361,15 @@ const joinedRuns = computed(
     new Set(participations.value.filter((p) => p.user === currentUser.value).map((p) => p.event)),
 );
 const arranged = computed(() => arrangeRuns(runs.value, currentUser.value, joinedRuns.value));
-const myRunsSection = ref<"upcoming" | "past" | "canceled">("upcoming");
+const SECTIONS = ["upcoming", "past", "canceled"] as const;
+const myRunsSection = ref<(typeof SECTIONS)[number]>("upcoming");
+/** The arrow keys move between My Runs' tabs, as in any tab list. */
+async function moveSection(step: number) {
+  const at = SECTIONS.indexOf(myRunsSection.value);
+  myRunsSection.value = SECTIONS[(at + step + SECTIONS.length) % SECTIONS.length]!;
+  await nextTick();
+  document.getElementById(`tab-${myRunsSection.value}`)?.focus();
+}
 const myRunsShown = computed(() => arranged.value[myRunsSection.value]);
 const roleIn = (run: Run) => (run.owner === currentUser.value ? "hosting" : "joined");
 
@@ -595,9 +630,17 @@ async function saveEdit() {
   }
 }
 
+/** Whether the run form is being sent, so it shows "Saving…" and can't be sent twice. */
+const savingRun = ref(false);
 async function submitRunForm() {
-  if (editingRunId.value) await saveEdit();
-  else await createRun();
+  if (savingRun.value) return;
+  savingRun.value = true;
+  try {
+    if (editingRunId.value) await saveEdit();
+    else await createRun();
+  } finally {
+    savingRun.value = false;
+  }
 }
 
 const runDate = computed(() => startTime.value.split("T")[0]);
@@ -637,6 +680,17 @@ const flexibilityError = computed(() => {
 
   return "";
 });
+
+/** The run form's problems, each once: a failed save can repeat what the live checks already say. */
+const formProblems = computed(() => [
+  ...new Set(
+    [
+      errorMessage.value,
+      editingRunId.value ? "" : flexibilityError.value,
+      editRangeError.value,
+    ].filter(Boolean),
+  ),
+]);
 
 async function loadRuns() {
   const response = await apiFetch("/api/runs/list", {
@@ -725,31 +779,52 @@ onMounted(async () => {
 
 <template>
   <!-- Home: friends' upcoming runs to discover and join -->
-  <main v-if="currentPage === 'home'">
+  <main v-if="currentPage === 'home'" class="home-page">
     <header>
-      <h1>RunTogether</h1>
+      <h1 class="brand-mark">RunTogether</h1>
       <div class="header-actions">
-        <div class="account-chip">
-          <span class="small-avatar">{{ signedInAs.charAt(0).toUpperCase() }}</span>
+        <button
+          type="button"
+          class="account-chip"
+          :aria-label="`Your profile, signed in as ${signedInAs}`"
+          @click="go('profile')"
+        >
+          <span class="small-avatar" aria-hidden="true">{{
+            signedInAs.charAt(0).toUpperCase()
+          }}</span>
           <span class="account-name" data-testid="signed-in-username">{{ signedInAs }}</span>
-        </div>
+        </button>
         <NotificationBell :notifications="notifications" @open="openRunById" />
       </div>
     </header>
-    <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
+    <p v-if="sessionError" class="form-error error-banner" role="alert">{{ sessionError }}</p>
 
-    <button class="create-run-button create-run-cta" type="button" @click="openCreate">
-      + Create a Run
-    </button>
+    <section class="create-panel" aria-labelledby="create-panel-title">
+      <div>
+        <h2 id="create-panel-title">Planning a run?</h2>
+        <p>Post it for your friends to join. If you're flexible, they can suggest changes.</p>
+      </div>
+      <button class="create-run-button create-run-cta" type="button" @click="openCreate">
+        <Plus :size="18" aria-hidden="true" /> Create a Run
+      </button>
+    </section>
 
-    <h2>Runs from friends</h2>
+    <div class="section-heading">
+      <h2>Runs from friends</h2>
+      <span v-if="arranged.home.length" class="segment-count">{{ arranged.home.length }}</span>
+    </div>
+    <p class="section-hint">See what your friends have planned and join them.</p>
     <div v-if="arranged.home.length === 0" class="empty-state">
       <template v-if="myFriends.length === 0">
+        <span class="empty-icon" aria-hidden="true"><Users :size="22" /></span>
         <p><strong>Add friends to see their runs here.</strong></p>
         <p class="muted-text">Find people you run with by their username.</p>
-        <button class="secondary-button" type="button" @click="go('friends')">Find friends</button>
+        <button class="secondary-button" type="button" @click="go('friends')">
+          <UserPlus :size="17" aria-hidden="true" /> Find friends
+        </button>
       </template>
       <template v-else>
+        <span class="empty-icon" aria-hidden="true"><CalendarDays :size="22" /></span>
         <p><strong>No new runs from your friends.</strong></p>
         <p class="muted-text">
           Runs you host or join are in My Runs. Create a run to invite your friends.
@@ -757,145 +832,178 @@ onMounted(async () => {
       </template>
     </div>
     <div v-else class="run-feed">
-      <RunCard v-for="run in arranged.home" :key="run.run" :run="run" @open="openRun(run)" />
+      <RunCard
+        v-for="run in arranged.home"
+        :key="run.run"
+        :run="run"
+        :going="goingTo(run)"
+        @open="openRun(run)"
+      />
     </div>
   </main>
 
   <!-- My Runs: runs I host or joined -->
   <main v-else-if="currentPage === 'my-runs'" class="my-runs-page">
     <header>
-      <h1>My Runs</h1>
+      <div>
+        <h1>My Runs</h1>
+        <p class="page-subtitle">Runs you host or joined.</p>
+      </div>
       <NotificationBell :notifications="notifications" @open="openRunById" />
     </header>
     <div class="segmented" role="tablist" aria-label="My runs">
       <button
-        v-for="section in ['upcoming', 'past', 'canceled'] as const"
+        v-for="section in SECTIONS"
+        :id="`tab-${section}`"
         :key="section"
         type="button"
         role="tab"
         class="segment"
         :class="{ active: myRunsSection === section }"
         :aria-selected="myRunsSection === section"
+        aria-controls="my-runs-panel"
+        :tabindex="myRunsSection === section ? 0 : -1"
         @click="myRunsSection = section"
+        @keydown.right.prevent="moveSection(1)"
+        @keydown.left.prevent="moveSection(-1)"
       >
         {{ section.charAt(0).toUpperCase() + section.slice(1) }}
         <span class="segment-count">{{ arranged[section].length }}</span>
       </button>
     </div>
-    <div v-if="myRunsShown.length === 0" class="empty-state">
-      <template v-if="myRunsSection === 'upcoming'">
-        <p><strong>No upcoming runs yet.</strong></p>
-        <p class="muted-text">Create a run, or join one of your friends' runs from Home.</p>
-        <button class="create-run-button" type="button" @click="openCreate">+ Create a Run</button>
-      </template>
-      <p v-else-if="myRunsSection === 'past'" class="muted-text">
-        Runs you hosted or joined will appear here after they happen.
-      </p>
-      <p v-else class="muted-text">No canceled runs.</p>
-    </div>
-    <div v-else class="run-feed">
-      <RunCard
-        v-for="run in myRunsShown"
-        :key="run.run"
-        :run="run"
-        :role="roleIn(run)"
-        @open="openRun(run)"
-      />
+    <div id="my-runs-panel" role="tabpanel" :aria-labelledby="`tab-${myRunsSection}`">
+      <div v-if="myRunsShown.length === 0" class="empty-state">
+        <template v-if="myRunsSection === 'upcoming'">
+          <span class="empty-icon" aria-hidden="true"><CalendarPlus :size="22" /></span>
+          <p><strong>No upcoming runs yet.</strong></p>
+          <p class="muted-text">Create a run, or join one of your friends' runs from Home.</p>
+          <button class="create-run-button" type="button" @click="openCreate">
+            <Plus :size="18" aria-hidden="true" /> Create a Run
+          </button>
+        </template>
+        <template v-else-if="myRunsSection === 'past'">
+          <span class="empty-icon" aria-hidden="true"><History :size="22" /></span>
+          <p><strong>No past runs yet.</strong></p>
+          <p class="muted-text">Runs you hosted or joined will appear here after they happen.</p>
+        </template>
+        <template v-else>
+          <span class="empty-icon" aria-hidden="true"><CalendarX :size="22" /></span>
+          <p><strong>No canceled runs.</strong></p>
+          <p class="muted-text">If a run you host or joined is canceled, it will show up here.</p>
+        </template>
+      </div>
+      <div v-else class="run-feed">
+        <RunCard
+          v-for="run in myRunsShown"
+          :key="run.run"
+          :run="run"
+          :going="goingTo(run)"
+          :role="roleIn(run)"
+          @open="openRun(run)"
+        />
+      </div>
     </div>
   </main>
 
   <!-- Create or edit a run -->
   <main v-else-if="currentPage === 'create'" class="create-page">
     <div class="create-header">
-      <button class="back-button" type="button" aria-label="Back" @click="closeRunForm">←</button>
-
+      <button class="back-button" type="button" aria-label="Back" @click="closeRunForm">
+        <ArrowLeft :size="22" aria-hidden="true" />
+      </button>
       <h1>{{ editingRunId ? "Edit run" : "Create a run" }}</h1>
     </div>
 
     <form class="create-form" @submit.prevent="submitRunForm">
-      <label>
-        Start time
-        <input v-model="startTime" type="datetime-local" required />
-      </label>
-
-      <label>
-        Distance
-        <div class="input-with-unit">
-          <input v-model.number="distance" type="number" min="0" step="0.1" required />
-          <span>miles</span>
-        </div>
-      </label>
-
-      <label>
-        Pace
-        <div class="input-with-unit">
-          <input v-model.number="pace" type="number" min="0" step="0.1" required />
-          <span>min / mile</span>
-        </div>
-      </label>
-
-      <label>
-        Meeting point
-        <input
-          v-model="location"
-          type="text"
-          placeholder="e.g. Arthur Fiedler Footbridge, Boston"
-          required
-        />
-        <span class="field-hint"
-          >Where should friends meet to start the run? Enter a public landmark or address.</span
+      <section class="form-section" aria-labelledby="when-where-title">
+        <h2 id="when-where-title" class="form-section-title">When and where</h2>
+        <label>
+          Start time
+          <input v-model="startTime" type="datetime-local" required />
+        </label>
+        <label>
+          Meeting point
+          <input
+            v-model="location"
+            type="text"
+            placeholder="e.g. Arthur Fiedler Footbridge, Boston"
+            aria-describedby="location-hint"
+            required
+          />
+          <span id="location-hint" class="field-hint"
+            >Where should friends meet to start the run? Enter a public landmark or address.</span
+          >
+        </label>
+        <a
+          v-if="location.trim()"
+          class="meeting-point-preview"
+          :href="mapsUrl(location)"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-      </label>
+          <MapPin :size="17" aria-hidden="true" />
+          Check this meeting point on Google Maps
+          <ChevronRight :size="16" aria-hidden="true" />
+        </a>
+      </section>
 
-      <a
-        v-if="location.trim()"
-        class="meeting-point-preview"
-        :href="mapsUrl(location)"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <MapPin :size="17" />
-        Check this meeting point on Google Maps
-        <ChevronRight :size="16" />
-      </a>
-
-      <label>
-        Description (optional)
-        <textarea
-          v-model="details"
-          rows="4"
-          maxlength="1500"
-          placeholder="Describe the route, meeting instructions, or anything friends should know."
-        ></textarea>
-      </label>
-
-      <p v-if="editingRun && isFlexible(editingRun)" class="field-hint">
-        This run's flexibility ranges stay the same, so the new details need to fit within them.
-      </p>
+      <section class="form-section" aria-labelledby="run-details-title">
+        <h2 id="run-details-title" class="form-section-title">The run</h2>
+        <div class="form-row">
+          <label>
+            Distance
+            <div class="input-with-unit">
+              <input v-model.number="distance" type="number" min="0" step="0.1" required />
+              <span>miles</span>
+            </div>
+          </label>
+          <label>
+            Pace
+            <div class="input-with-unit">
+              <input v-model.number="pace" type="number" min="0" step="0.1" required />
+              <span>min / mile</span>
+            </div>
+          </label>
+        </div>
+        <label>
+          <span>Description <span class="optional">(optional)</span></span>
+          <textarea
+            v-model="details"
+            rows="4"
+            maxlength="1500"
+            placeholder="Describe the route, meeting instructions, or anything friends should know."
+          ></textarea>
+        </label>
+        <p v-if="editingRun && isFlexible(editingRun)" class="field-hint">
+          This run's flexibility ranges stay the same, so the new details need to fit within them.
+        </p>
+      </section>
 
       <section v-if="!editingRunId" class="flexibility-section">
-        <div class="flexibility-heading">
-          <div>
-            <strong>Set flexibility (optional)</strong>
-            <p>Let friends suggest small changes to this run.</p>
-          </div>
-
-          <input v-model="hasFlexibility" type="checkbox" class="flexibility-toggle" />
-        </div>
+        <label class="flexibility-heading">
+          <span>
+            <strong>Set flexibility</strong> <span class="optional">(optional)</span>
+            <span class="flexibility-description"
+              >Let friends suggest small changes to this run, within ranges you choose.</span
+            >
+          </span>
+          <input
+            v-model="hasFlexibility"
+            type="checkbox"
+            role="switch"
+            class="flexibility-toggle"
+          />
+        </label>
 
         <div v-if="hasFlexibility" class="flexibility-fields">
           <label>
             Time window
-
             <div class="range-inputs">
-              <input v-model="earliestTime" type="time" />
-
-              <span>–</span>
-
-              <input v-model="latestTime" type="time" />
+              <input v-model="earliestTime" type="time" aria-label="Earliest start time" />
+              <span aria-hidden="true">–</span>
+              <input v-model="latestTime" type="time" aria-label="Latest start time" />
             </div>
           </label>
-
           <label>
             Distance range
             <div class="range-inputs">
@@ -905,117 +1013,140 @@ onMounted(async () => {
                 min="0"
                 step="0.1"
                 placeholder="Min"
+                aria-label="Minimum distance in miles"
               />
-              <span>–</span>
+              <span aria-hidden="true">–</span>
               <input
                 v-model.number="maxDistance"
                 type="number"
                 min="0"
                 step="0.1"
                 placeholder="Max"
+                aria-label="Maximum distance in miles"
               />
               <span>miles</span>
             </div>
           </label>
-
           <label>
             Pace range
             <div class="range-inputs">
-              <input v-model.number="minPace" type="number" min="0" step="0.1" placeholder="Min" />
-              <span>–</span>
-              <input v-model.number="maxPace" type="number" min="0" step="0.1" placeholder="Max" />
+              <input
+                v-model.number="minPace"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Min"
+                aria-label="Fastest pace in minutes per mile"
+              />
+              <span aria-hidden="true">–</span>
+              <input
+                v-model.number="maxPace"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Max"
+                aria-label="Slowest pace in minutes per mile"
+              />
               <span>min/mi</span>
             </div>
           </label>
         </div>
       </section>
 
-      <p v-if="errorMessage" class="form-error">
-        {{ errorMessage }}
-      </p>
+      <div v-if="formProblems.length" class="form-problems" role="alert">
+        <p v-for="problem in formProblems" :key="problem" class="form-error">{{ problem }}</p>
+      </div>
 
-      <p v-if="flexibilityError && !editingRunId" class="form-error">
-        {{ flexibilityError }}
-      </p>
-      <p v-if="editRangeError" class="form-error">{{ editRangeError }}</p>
-
-      <button class="save-run-button" type="submit">
-        {{ editingRunId ? "Save changes" : "Save run" }}
+      <button
+        class="save-run-button form-submit"
+        type="submit"
+        :disabled="savingRun"
+        :aria-busy="savingRun"
+      >
+        {{ savingRun ? "Saving…" : editingRunId ? "Save changes" : "Save run" }}
       </button>
     </form>
   </main>
 
-  <!-- Run details -->
+  <!-- Run details: the run, what you can do with it, then suggestions, who's going, and the talk -->
   <main v-else-if="currentPage === 'run-details' && selectedRun" class="run-details-page">
     <div class="details-header">
       <button class="back-button" type="button" aria-label="Back" @click="go(returnTo)">
-        <ArrowLeft :size="25" />
+        <ArrowLeft :size="22" aria-hidden="true" />
       </button>
-      <span class="small-avatar">{{ selectedRun.owner.charAt(0).toUpperCase() }}</span>
-      <div>
-        <strong>{{ selectedRun.owner }}</strong>
-        <p class="run-card-date">
-          {{ formatRunDate(selectedRun.startTime) }} · {{ formatRunTime(selectedRun.startTime) }}
+      <div class="details-host">
+        <span class="small-avatar" aria-hidden="true">{{
+          selectedRun.owner.charAt(0).toUpperCase()
+        }}</span>
+        <p>
+          Hosted by <strong>{{ selectedRun.owner }}</strong
+          ><template v-if="isOwner"> (you)</template>
         </p>
       </div>
     </div>
     <p v-if="isCanceled(selectedRun)" class="canceled-banner" role="status">
-      <CircleX :size="18" /> This run was canceled by {{ isOwner ? "you" : selectedRun.owner }}.
+      <CircleX :size="18" aria-hidden="true" /> This run was canceled by
+      {{ isOwner ? "you" : selectedRun.owner }}.
     </p>
-    <div class="run-title-row" :class="{ 'canceled-title': isCanceled(selectedRun) }">
-      <h1>{{ runTitle(selectedRun.startTime) }}</h1>
-      <span class="flex-badge" :class="isFlexible(selectedRun) ? 'flexible' : 'fixed'">{{
-        isFlexible(selectedRun) ? "Flexible" : "Fixed"
-      }}</span>
-    </div>
-    <div class="run-card-detail">
-      <MapPin :size="19" /><span>Meet at {{ selectedRun.location }}</span>
-    </div>
-    <div class="run-card-detail">
-      <Route :size="19" /><span
-        >{{ selectedRun.distance }} miles · {{ selectedRun.pace }} min/mi</span
-      >
-    </div>
-    <div class="run-card-detail">
-      <Clock3 :size="19" /><span>{{ formatRunTime(selectedRun.startTime) }}</span>
-    </div>
-    <div v-if="isFlexible(selectedRun)" class="flex-ranges">
-      <p v-if="selectedRun.earliestTime && selectedRun.latestTime">
-        Time window: {{ formatRunTime(selectedRun.earliestTime) }} –
-        {{ formatRunTime(selectedRun.latestTime) }}
-      </p>
-      <p v-if="selectedRun.minDistance != null && selectedRun.maxDistance != null">
-        Distance: {{ selectedRun.minDistance }}–{{ selectedRun.maxDistance }} miles
-      </p>
-      <p v-if="selectedRun.minPace != null && selectedRun.maxPace != null">
-        Pace: {{ selectedRun.minPace }}–{{ selectedRun.maxPace }} min/mi
-      </p>
-    </div>
-    <a
-      class="details-map-link"
-      :href="mapsUrl(selectedRun.location)"
-      target="_blank"
-      rel="noopener noreferrer"
-      ><MapPin :size="19" /> View meeting point on Google Maps <ChevronRight :size="17"
-    /></a>
-    <section class="run-details-section">
-      <h2>Going ({{ selectedParticipants.length }})</h2>
-      <p v-if="runDetailsError" class="form-error">{{ runDetailsError }}</p>
-      <div class="participants-list">
-        <div v-for="participant in selectedParticipants" :key="participant" class="participant">
-          <span class="small-avatar">{{ participant.charAt(0).toUpperCase() }}</span
-          ><strong>{{ participant }}</strong
-          ><span v-if="participant === selectedRun.owner" class="muted-text">Host</span>
-        </div>
+
+    <section class="details-hero" aria-labelledby="run-heading">
+      <div class="run-title-row" :class="{ 'canceled-title': isCanceled(selectedRun) }">
+        <h1 id="run-heading">{{ runTitle(selectedRun.startTime) }}</h1>
+        <span class="flex-badge" :class="isFlexible(selectedRun) ? 'flexible' : 'fixed'">{{
+          isFlexible(selectedRun) ? "Flexible" : "Fixed"
+        }}</span>
       </div>
+      <dl class="run-facts">
+        <div>
+          <dt><CalendarDays :size="15" aria-hidden="true" />When</dt>
+          <dd>
+            {{ formatRunDate(selectedRun.startTime) }} · {{ formatRunTime(selectedRun.startTime) }}
+          </dd>
+        </div>
+        <div>
+          <dt><Route :size="15" aria-hidden="true" />Distance and pace</dt>
+          <dd>{{ selectedRun.distance }} miles · {{ selectedRun.pace }} min/mi</dd>
+        </div>
+        <div>
+          <dt><MapPin :size="15" aria-hidden="true" />Where</dt>
+          <dd>Meet at {{ selectedRun.location }}</dd>
+        </div>
+      </dl>
+      <div v-if="isFlexible(selectedRun)" class="flex-ranges">
+        <h2>Open to changes within</h2>
+        <ul>
+          <li v-if="selectedRun.earliestTime && selectedRun.latestTime">
+            Time window: {{ formatRunTime(selectedRun.earliestTime) }} –
+            {{ formatRunTime(selectedRun.latestTime) }}
+          </li>
+          <li v-if="selectedRun.minDistance != null && selectedRun.maxDistance != null">
+            Distance: {{ selectedRun.minDistance }}–{{ selectedRun.maxDistance }} miles
+          </li>
+          <li v-if="selectedRun.minPace != null && selectedRun.maxPace != null">
+            Pace: {{ selectedRun.minPace }}–{{ selectedRun.maxPace }} min/mi
+          </li>
+        </ul>
+      </div>
+      <a
+        class="details-map-link"
+        :href="mapsUrl(selectedRun.location)"
+        target="_blank"
+        rel="noopener noreferrer"
+        ><MapPin :size="18" aria-hidden="true" /> View meeting point on Google Maps
+        <ChevronRight :size="17" aria-hidden="true"
+      /></a>
     </section>
+
     <p v-if="runActionMessage" class="success-message" role="status">{{ runActionMessage }}</p>
+    <p v-if="runDetailsError" class="form-error error-banner" role="alert">
+      {{ runDetailsError }}
+    </p>
 
     <!-- What the signed-in user can do with this run -->
     <section v-if="runIsOpen" class="run-actions" aria-label="Run actions">
       <template v-if="isOwner">
         <button class="save-run-button" type="button" :disabled="runActionBusy" @click="openEdit">
-          <Pencil :size="17" class="inline-icon" /> Edit run
+          <Pencil :size="17" aria-hidden="true" /> Edit run
         </button>
         <button
           class="danger-button"
@@ -1023,20 +1154,21 @@ onMounted(async () => {
           :disabled="runActionBusy"
           @click="confirmCancelOpen = true"
         >
-          Cancel run
+          <CircleX :size="17" aria-hidden="true" /> Cancel run
         </button>
       </template>
       <template v-else-if="isJoined">
         <button class="outline-action-button" type="button" @click="openSuggestion">
-          Suggest a change
+          <Lightbulb :size="17" aria-hidden="true" /> Suggest a change
         </button>
         <button
           class="secondary-button"
           type="button"
           :disabled="runActionBusy"
+          :aria-busy="runActionBusy"
           @click="leaveSelectedRun"
         >
-          Leave run
+          <UserMinus :size="17" aria-hidden="true" /> Leave run
         </button>
       </template>
       <template v-else>
@@ -1044,19 +1176,28 @@ onMounted(async () => {
           class="save-run-button"
           type="button"
           :disabled="runActionBusy"
+          :aria-busy="runActionBusy"
           @click="joinSelectedRun"
         >
-          Join run
+          <UserPlus :size="17" aria-hidden="true" /> Join run
         </button>
         <button class="outline-action-button" type="button" @click="openSuggestion">
-          Suggest a change
+          <Lightbulb :size="17" aria-hidden="true" /> Suggest a change
         </button>
       </template>
     </section>
-    <p v-else-if="!isCanceled(selectedRun)" class="muted-text">This run has already happened.</p>
+    <p v-else-if="!isCanceled(selectedRun)" class="run-status-note">
+      This run has already happened.
+    </p>
 
-    <section v-if="isOwner && runIsOpen && pendingSuggestions.length" class="run-details-section">
-      <h2>Pending suggestions</h2>
+    <section
+      v-if="isOwner && runIsOpen && pendingSuggestions.length"
+      class="run-details-section"
+      aria-labelledby="suggestions-title"
+    >
+      <h2 id="suggestions-title">
+        Pending suggestions <span class="segment-count">{{ pendingSuggestions.length }}</span>
+      </h2>
       <div
         v-for="suggestion in pendingSuggestions"
         :key="suggestion.suggestion"
@@ -1098,9 +1239,24 @@ onMounted(async () => {
         </div>
       </div>
     </section>
-    <section class="run-details-section">
-      <h2>Description</h2>
-      <p class="description-text">{{ selectedRun.details || "No description provided." }}</p>
+
+    <section class="run-details-section" aria-labelledby="going-title">
+      <h2 id="going-title">Going ({{ selectedParticipants.length }})</h2>
+      <div class="participants-list">
+        <div v-for="participant in selectedParticipants" :key="participant" class="participant">
+          <span class="small-avatar" aria-hidden="true">{{
+            participant.charAt(0).toUpperCase()
+          }}</span
+          ><strong>{{ participant }}</strong
+          ><span v-if="participant === selectedRun.owner" class="comment-host">Host</span>
+        </div>
+      </div>
+    </section>
+    <section class="run-details-section" aria-labelledby="description-title">
+      <h2 id="description-title">Description</h2>
+      <p class="description-text" :class="{ empty: !selectedRun.details }">
+        {{ selectedRun.details || "No description provided." }}
+      </p>
     </section>
     <RunComments :key="selectedRun.run" :run="selectedRun" :me="currentUser" :post="postJson" />
   </main>
@@ -1108,32 +1264,39 @@ onMounted(async () => {
   <!-- Friends: find people, answer requests, and see friends -->
   <main v-else-if="currentPage === 'friends'" class="friends-page">
     <header>
-      <h1>Friends</h1>
+      <div>
+        <h1>Friends</h1>
+        <p class="page-subtitle">Your friends' runs show up on Home.</p>
+      </div>
       <NotificationBell :notifications="notifications" @open="openRunById" />
     </header>
 
-    <section class="friends-section">
-      <h2>Find friends</h2>
+    <section class="friends-section" aria-labelledby="find-title">
+      <h2 id="find-title">Find friends</h2>
       <form class="add-friend-form" role="search" @submit.prevent="searchPeople">
-        <input
-          v-model="friendName"
-          type="search"
-          placeholder="Search by username"
-          aria-label="Search by username"
-          autocapitalize="off"
-          spellcheck="false"
-        />
+        <div class="search-field">
+          <Search :size="18" aria-hidden="true" />
+          <input
+            v-model="friendName"
+            type="search"
+            placeholder="Search by username"
+            aria-label="Search by username"
+            aria-describedby="search-hint"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
         <button class="create-run-button" type="submit">Search</button>
       </form>
-      <p class="field-hint">
+      <p id="search-hint" class="field-hint">
         Type at least {{ MIN_SEARCH }} letters of a username, or browse the people below.
       </p>
-      <p v-if="friendError" class="form-error">{{ friendError }}</p>
+      <p v-if="friendError" class="form-error error-banner" role="alert">{{ friendError }}</p>
       <p v-if="friendMessage" class="success-message" role="status">{{ friendMessage }}</p>
       <h3 v-if="searchedFor !== null" class="results-heading">
         {{ searchedFor === "" ? "People on RunTogether" : `Results for “${searchedFor}”` }}
       </h3>
-      <p v-if="searching && searchResults.length === 0" class="muted-text" role="status">
+      <p v-if="searching && searchResults.length === 0" class="muted-text loading" role="status">
         Searching…
       </p>
       <div
@@ -1141,6 +1304,7 @@ onMounted(async () => {
         class="empty-state"
         data-testid="no-people"
       >
+        <span class="empty-icon" aria-hidden="true"><Users :size="22" /></span>
         <p><strong>You're the first one here.</strong></p>
         <p class="muted-text">
           Invite your friends to sign up for RunTogether, then find them here by username.
@@ -1161,7 +1325,7 @@ onMounted(async () => {
           :data-username="name"
         >
           <span class="search-result-name"
-            ><span class="small-avatar">{{ name.charAt(0).toUpperCase() }}</span
+            ><span class="small-avatar" aria-hidden="true">{{ name.charAt(0).toUpperCase() }}</span
             >{{ name }}</span
           >
           <span v-if="friendState(name) === 'friends'" class="flex-badge flexible"
@@ -1187,14 +1351,14 @@ onMounted(async () => {
             </button>
           </div>
           <button v-else class="create-run-button" type="button" @click="sendFriendRequest(name)">
-            Add Friend
+            <UserPlus :size="16" aria-hidden="true" /> Add Friend
           </button>
         </li>
       </ul>
     </section>
 
-    <section class="friends-section">
-      <h2>
+    <section class="friends-section" aria-labelledby="requests-title">
+      <h2 id="requests-title">
         Friend requests
         <span v-if="incomingRequests.length" class="request-count">{{
           incomingRequests.length
@@ -1205,36 +1369,49 @@ onMounted(async () => {
       </p>
       <div v-for="request in incomingRequests" :key="request.request" class="request-row">
         <span class="search-result-name"
-          ><span class="small-avatar">{{ request.sender.charAt(0).toUpperCase() }}</span
+          ><span class="small-avatar" aria-hidden="true">{{
+            request.sender.charAt(0).toUpperCase()
+          }}</span
           >{{ request.sender }}</span
         >
         <div class="request-actions">
-          <button class="create-run-button" @click="friendAction('accept', request.request)">
+          <button
+            class="create-run-button"
+            type="button"
+            @click="friendAction('accept', request.request)"
+          >
             Accept
           </button>
-          <button class="secondary-button" @click="friendAction('reject', request.request)">
+          <button
+            class="secondary-button"
+            type="button"
+            @click="friendAction('reject', request.request)"
+          >
             Decline
           </button>
         </div>
       </div>
       <div v-for="request in outgoingRequests" :key="request.request" class="request-row">
         <span class="search-result-name"
-          ><span class="small-avatar">{{ request.recipient.charAt(0).toUpperCase() }}</span
+          ><span class="small-avatar" aria-hidden="true">{{
+            request.recipient.charAt(0).toUpperCase()
+          }}</span
           >{{ request.recipient }}</span
         >
         <span class="flex-badge fixed">Requested</span>
       </div>
     </section>
 
-    <section class="friends-section">
-      <h2>Your friends ({{ myFriends.length }})</h2>
+    <section class="friends-section" aria-labelledby="your-friends-title">
+      <h2 id="your-friends-title">Your friends ({{ myFriends.length }})</h2>
       <div v-if="myFriends.length === 0" class="empty-state">
+        <span class="empty-icon" aria-hidden="true"><UserPlus :size="22" /></span>
         <p><strong>No friends yet.</strong></p>
         <p class="muted-text">Search above for people you run with to see and join their runs.</p>
       </div>
       <ul v-else class="friend-list" aria-label="Your friends">
         <li v-for="friend in myFriends" :key="friend" class="friend-row">
-          <span class="small-avatar">{{ friend.charAt(0).toUpperCase() }}</span
+          <span class="small-avatar" aria-hidden="true">{{ friend.charAt(0).toUpperCase() }}</span
           >{{ friend }}
         </li>
       </ul>
@@ -1261,18 +1438,24 @@ onMounted(async () => {
       <button class="stat-card" type="button" @click="go('friends')">
         <strong>{{ myFriends.length }}</strong>
         <span>{{ myFriends.length === 1 ? "Friend" : "Friends" }}</span>
-        <ChevronRight :size="18" />
+        <ChevronRight :size="18" aria-hidden="true" />
       </button>
       <button class="stat-card" type="button" @click="go('my-runs')">
         <strong>{{ arranged.upcoming.length }}</strong>
         <span>Upcoming {{ arranged.upcoming.length === 1 ? "run" : "runs" }}</span>
-        <ChevronRight :size="18" />
+        <ChevronRight :size="18" aria-hidden="true" />
       </button>
     </div>
 
     <section class="profile-section" aria-labelledby="account-title">
       <h2 id="account-title">Account</h2>
-      <button class="profile-menu-item" type="button" :disabled="signingOut" @click="logOut">
+      <button
+        class="profile-menu-item"
+        type="button"
+        :disabled="signingOut"
+        :aria-busy="signingOut"
+        @click="logOut"
+      >
         <span class="menu-label"
           ><LogOut :size="19" aria-hidden="true" /><span>Log out of {{ signedInAs }}</span></span
         >
@@ -1286,22 +1469,25 @@ onMounted(async () => {
     v-if="suggestionOpen && selectedRun"
     class="suggestion-backdrop"
     @click.self="suggestionOpen = false"
+    @keydown.esc="suggestionOpen = false"
   >
     <div
+      ref="suggestionDialog"
       class="suggestion-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="suggestion-title"
+      tabindex="-1"
     >
       <div class="suggestion-modal-header">
         <h2 id="suggestion-title">Suggest a change</h2>
         <button
           type="button"
-          class="suggestion-close"
+          class="icon-button suggestion-close"
           aria-label="Close suggestion"
           @click="suggestionOpen = false"
         >
-          ×
+          <X :size="22" aria-hidden="true" />
         </button>
       </div>
       <p class="muted-text">
@@ -1357,7 +1543,12 @@ onMounted(async () => {
         </div>
         <p v-if="draftProblem" class="form-error" role="alert">{{ draftProblem }}</p>
         <p v-if="suggestionError" class="form-error" role="alert">{{ suggestionError }}</p>
-        <button class="save-run-button" type="submit" :disabled="!!draftProblem || runActionBusy">
+        <button
+          class="save-run-button"
+          type="submit"
+          :disabled="!!draftProblem || runActionBusy"
+          :aria-busy="runActionBusy"
+        >
           {{ runActionBusy ? "Sending…" : "Send suggestion" }}
         </button>
       </form>
@@ -1369,13 +1560,16 @@ onMounted(async () => {
     v-if="confirmCancelOpen && selectedRun"
     class="suggestion-backdrop"
     @click.self="confirmCancelOpen = false"
+    @keydown.esc="confirmCancelOpen = false"
   >
     <div
+      ref="confirmDialog"
       class="suggestion-modal confirm-modal"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="cancel-title"
       aria-describedby="cancel-description"
+      tabindex="-1"
     >
       <h2 id="cancel-title">Cancel this run?</h2>
       <p id="cancel-description" class="muted-text">
@@ -1396,6 +1590,7 @@ onMounted(async () => {
           class="danger-button"
           type="button"
           :disabled="runActionBusy"
+          :aria-busy="runActionBusy"
           @click="cancelSelectedRun"
         >
           {{ runActionBusy ? "Canceling…" : "Cancel run" }}
@@ -1412,21 +1607,46 @@ onMounted(async () => {
     class="bottom-nav"
     aria-label="Main navigation"
   >
-    <button class="nav-item" :class="{ active: currentPage === 'home' }" @click="go('home')">
-      <Home class="nav-icon" />
+    <button
+      type="button"
+      class="nav-item"
+      :class="{ active: currentPage === 'home' }"
+      :aria-current="currentPage === 'home' ? 'page' : undefined"
+      @click="go('home')"
+    >
+      <Home class="nav-icon" aria-hidden="true" />
       <span>Home</span>
     </button>
-    <button class="nav-item" :class="{ active: currentPage === 'my-runs' }" @click="go('my-runs')">
-      <CalendarCheck class="nav-icon" />
+    <button
+      type="button"
+      class="nav-item"
+      :class="{ active: currentPage === 'my-runs' }"
+      :aria-current="currentPage === 'my-runs' ? 'page' : undefined"
+      @click="go('my-runs')"
+    >
+      <CalendarCheck class="nav-icon" aria-hidden="true" />
       <span>My Runs</span>
     </button>
-    <button class="nav-item" :class="{ active: currentPage === 'friends' }" @click="go('friends')">
-      <Users class="nav-icon" />
+    <button
+      type="button"
+      class="nav-item"
+      :class="{ active: currentPage === 'friends' }"
+      :aria-current="currentPage === 'friends' ? 'page' : undefined"
+      :aria-label="incomingRequests.length ? 'Friends, new friend requests' : undefined"
+      @click="go('friends')"
+    >
+      <Users class="nav-icon" aria-hidden="true" />
       <span>Friends</span>
-      <span v-if="incomingRequests.length" class="nav-dot" aria-label="New friend requests"></span>
+      <span v-if="incomingRequests.length" class="nav-dot"></span>
     </button>
-    <button class="nav-item" :class="{ active: currentPage === 'profile' }" @click="go('profile')">
-      <User class="nav-icon" />
+    <button
+      type="button"
+      class="nav-item"
+      :class="{ active: currentPage === 'profile' }"
+      :aria-current="currentPage === 'profile' ? 'page' : undefined"
+      @click="go('profile')"
+    >
+      <User class="nav-icon" aria-hidden="true" />
       <span>Profile</span>
     </button>
   </nav>
