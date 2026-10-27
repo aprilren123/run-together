@@ -17,6 +17,7 @@ import {
 import { useSession } from "./auth/session.ts";
 import RunCard from "./RunCard.vue";
 import NotificationBell from "./NotificationBell.vue";
+import RunComments from "./RunComments.vue";
 import { createNotifications } from "./notifications.ts";
 import {
   changeRows,
@@ -56,13 +57,14 @@ async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   return response;
 }
 // Notifications are read when the app opens and on every page change; the bell shows the unread count.
-const notifications = createNotifications((path, body = {}) =>
+/** Posts JSON to the API with the session cookie; a 401 shows the sign-in screen. */
+const postJson = (path: string, body: object = {}) =>
   apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }),
-);
+  });
+const notifications = createNotifications(postJson);
 const notice = ref("");
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 function showNotice(message: string) {
@@ -1100,6 +1102,7 @@ onMounted(async () => {
       <h2>Description</h2>
       <p class="description-text">{{ selectedRun.details || "No description provided." }}</p>
     </section>
+    <RunComments :key="selectedRun.run" :run="selectedRun" :me="currentUser" :post="postJson" />
   </main>
 
   <!-- Friends: find people, answer requests, and see friends -->

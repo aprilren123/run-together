@@ -5,6 +5,7 @@ import joiningSpec from "@design/concepts/Joining.md" with { type: "text" };
 import changeSuggestingSpec from "@design/concepts/ChangeSuggesting.md" with { type: "text" };
 import friendingSpec from "@design/concepts/Friending.md" with { type: "text" };
 import notifyingSpec from "@design/concepts/Notifying.md" with { type: "text" };
+import commentingSpec from "@design/concepts/Commenting.md" with { type: "text" };
 
 import {
   InvalidRun,
@@ -33,6 +34,13 @@ import {
 } from "./concepts/Friending.ts";
 
 import { NotificationNotFound, NotifyingConcept } from "./concepts/Notifying.ts";
+import {
+  CannotDelete,
+  CommentNotFound,
+  CommentingConcept,
+  DuplicateComment,
+  InvalidComment,
+} from "./concepts/Commenting.ts";
 import { readRunChange } from "./runChange.ts";
 
 import { registering } from "./concepts/Registering/registry.ts";
@@ -90,6 +98,17 @@ const notifying = registerConcept({
   },
 });
 
+const commenting = registerConcept({
+  class: CommentingConcept,
+  spec: commentingSpec,
+  refusals: {
+    INVALID_COMMENT: InvalidComment,
+    DUPLICATE_COMMENT: DuplicateComment,
+    CANNOT_DELETE: CannotDelete,
+    COMMENT_NOT_FOUND: CommentNotFound,
+  },
+});
+
 export const applicationConceptSet = conceptSet(
   {
     RunPlanning: runPlanning,
@@ -97,6 +116,7 @@ export const applicationConceptSet = conceptSet(
     ChangeSuggesting: changeSuggesting,
     Friending: friending,
     Notifying: notifying,
+    Commenting: commenting,
 
     Registering: registering,
     Authenticating: authenticating,

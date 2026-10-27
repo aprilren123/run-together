@@ -1249,3 +1249,123 @@ h2 {
   font-size: 16px;
   color: #32734f;
 }
+
+/* Discussion: informal comments under a run */
+.comments-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.comments-hint {
+  margin: -6px 0 14px;
+}
+.comments-empty {
+  padding: 16px;
+}
+.comments-empty p {
+  margin: 0;
+}
+.comment-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #eef1ef;
+}
+.comment .small-avatar {
+  flex-shrink: 0;
+}
+.comment-body {
+  flex: 1;
+  min-width: 0;
+}
+.comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  margin: 0 0 4px;
+}
+.comment-meta strong {
+  overflow-wrap: anywhere;
+}
+.comment-meta time {
+  color: #66736c;
+  font-size: 13px;
+}
+.comment-host {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #e4f2e8;
+  color: #32734f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.comment-text {
+  margin: 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comment-delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #66736c;
+  font-size: 13px;
+  cursor: pointer;
+}
+.comment-delete:hover:not(:disabled) {
+  background: #fdecea;
+  color: #b42318;
+}
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.comment-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+.comment-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.comment-form-footer .form-error {
+  margin: 0;
+}
+.comments-closed {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f4f4f4;
+  color: #66736c;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

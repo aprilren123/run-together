@@ -4,7 +4,7 @@ RunTogether identifies every user by their Registering user, uses runs as the ev
 
 Every account in RunTogether is a Registering user, whether it signed up with a password or signed in with Commons. That user is the one who has a password in Authenticating, the one a Commons account is linked to in CommonsFederating, and the one a session belongs to in Sessioning. CommonsFederating is Federating with Commons as the other site.
 
-That same user owns runs in RunPlanning, participates in Joining, suggests and decides in ChangeSuggesting, and sends, receives, and holds friendships in Friending. Every RunTogether endpoint reads the acting user from `Sessioning.use`, never from the request, and people refer to each other only by username, which `Registering._byUsername` turns into a user. The [RunTogether composition](compositions/RunTogether.md) describes how. People involved in a run are told about changes to it through Notifying, as the [Notifications composition](compositions/Notifications.md) describes.
+That same user owns runs in RunPlanning, participates in Joining, suggests and decides in ChangeSuggesting, and sends, receives, and holds friendships in Friending. Every RunTogether endpoint reads the acting user from `Sessioning.use`, never from the request, and people refer to each other only by username, which `Registering._byUsername` turns into a user. The [RunTogether composition](compositions/RunTogether.md) describes how. People involved in a run are told about changes to it through Notifying, as the [Notifications composition](compositions/Notifications.md) describes. People who can see a run can talk about it informally in Commenting, as the [Comments composition](compositions/Comments.md) describes; a formal change to the run is still a ChangeSuggesting suggestion.
 
 ```types
 concrete RunChange
@@ -46,4 +46,8 @@ instantiate Notifying with
   Actor is Registering.User
   Subject is RunPlanning.Run
   Kind is NotificationKind
+
+instantiate Commenting with
+  Author is Registering.User
+  Target is RunPlanning.Run
 ```

@@ -91,6 +91,46 @@ export type RunTogetherWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "INVALID_PASSWORD" | "INVALID_USERNAME" | "PASSWORD_SET" | "USERNAME_TAKEN" };
   };
+  "/comments/delete": {
+    input: {
+      "comment": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["delete"]>[0], ["comment"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["_get"]>[0], ["comment"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["delete"]>[0], ["comment"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["delete"]>>, ["comment"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["remove"]>[0], ["comment"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["_get"]>[0], ["comment"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["remove"]>[0], ["comment"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["remove"]>>, ["comment"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "comment": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["delete"]>[0], ["comment"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["delete"]>>, ["comment"]>]>>;
+    } | {
+      "comment": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["remove"]>[0], ["comment"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["remove"]>>, ["comment"]>]>>;
+    };
+    error: { error: AppWideError | "CANNOT_DELETE" | "COMMENT_NOT_FOUND" | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/comments/list": {
+    input: {
+      "run": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["_on"]>[0], ["target"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["_on"]>[0], ["target"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "comments": {
+        "comments": {
+          "at": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["_on"]>>>, ["at"]>>;
+          "author": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+          "comment": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["_on"]>>>, ["comment"]>>;
+          "text": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["_on"]>>>, ["text"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" | "RUN_NOT_FOUND" };
+  };
+  "/comments/post": {
+    input: {
+      "run": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["post"]>[0], ["target"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "text": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Commenting"]["post"]>[0], ["text"]>>;
+    };
+    output: {
+      "comment": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Commenting"]["post"]>>, ["comment"]>>;
+    };
+    error: { error: AppWideError | "DUPLICATE_COMMENT" | "INVALID_COMMENT" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "RUN_CANCELED" | "RUN_NOT_FOUND" };
+  };
   "/friends/accept": {
     input: {
       "request": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Friending"]["accept"]>[0], ["request"]>>;

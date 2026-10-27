@@ -55,6 +55,31 @@ Defined in [ChangeSuggesting](../design/concepts/ChangeSuggesting.md), line 1.
   - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 38.
   - `User` is `Registering.User` — [Application types](../design/types.md), line 37.
 
+### Commenting
+
+Defined in [Commenting](../design/concepts/Commenting.md), line 1.
+
+#### Actions
+
+- `post(author: Author, target: Target, text: String) : returns (comment: Comment)`
+  - Refuses `INVALID_COMMENT`: A comment must have 1 to 500 characters.
+  - Refuses `DUPLICATE_COMMENT`: You just posted that comment.
+- `delete(author: Author, comment: Comment) : returns (comment: Comment)`
+  - Refuses `CANNOT_DELETE`: This comment can't be deleted.
+- `remove(comment: Comment) : returns (comment: Comment)`
+  - Refuses `COMMENT_NOT_FOUND`: There is no such comment.
+
+#### Queries
+
+- `_on(target: Target) : many (comment: Comment, author: Author, text: String, at: DateTime)`
+- `_get(comment: Comment) : optional (author: Author, target: Target)`
+
+#### Instances
+
+- `Commenting` — instance of `Commenting` — [Application types](../design/types.md), line 50.
+  - `Author` is `Registering.User` — [Application types](../design/types.md), line 51.
+  - `Target` is `RunPlanning.Run` — [Application types](../design/types.md), line 52.
+
 ### Federating
 
 Defined in [Federating](../design/concepts/Federating.md), line 1.
@@ -285,6 +310,38 @@ Authored path: `RunTogether.joined`.
   where Joining._all () has (event: run, user)
 ```
 
+### the author and run of (comment)
+
+Authored path: `comments.access.commentInfo`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+
+```view
+the author and run of (comment) — inputs (comment); outputs (author, run); bindings () — answers any number of (author, run)
+  where Commenting._get (comment) has (author, target: run)
+```
+
+### the owner and status of (run)
+
+Authored path: `RunTogether.runInfo`.
+- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
+
+```view
+the owner and status of (run) — inputs (run); outputs (owner, status); bindings () — answers any number of (owner, status)
+  where RunPlanning._all () has (owner, run, status)
+```
+
+### (user) owns the run of (comment)
+
+Authored path: `comments.access.moderates`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+
+```view
+(user) owns the run of (comment) — inputs (user, comment); outputs (); bindings (run)
+  where
+    view "the author and run of (comment)" with (comment) has (run)
+    view "the owner and status of (run)" with (run) has (owner: user)
+```
+
 ### (user) sent or received (request)
 
 Authored path: `RunTogether.inRequest`.
@@ -299,6 +356,7 @@ Authored path: `RunTogether.inRequest`.
 ### (viewer) can see (run)
 
 Authored path: `RunTogether.canSee`.
+- Covered by [Comments](../design/compositions/Comments.md), line 5.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
 
 ```view
@@ -308,16 +366,6 @@ Authored path: `RunTogether.canSee`.
     RunPlanning._all () has (owner, run)
     view "(user) is friends with (other)" with (other: owner, user: viewer)
   where view "(user) joined (run)" with (run, user: viewer)
-```
-
-### the owner and status of (run)
-
-Authored path: `RunTogether.runInfo`.
-- Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
-
-```view
-the owner and status of (run) — inputs (run); outputs (owner, status); bindings () — answers any number of (owner, status)
-  where RunPlanning._all () has (owner, run, status)
 ```
 
 ### the people and run of (suggestion)
@@ -334,6 +382,23 @@ the people and run of (suggestion) — inputs (suggestion); outputs (suggester, 
 
 _Formers name result shapes evaluated when asked. The source former owns_
 _the authored explanation; this section records the generated shape._
+
+### the comments on (run)
+
+Authored path: `comments.reading.CommentList`.
+- Covered by [Comments](../design/compositions/Comments.md), line 5.
+
+```former
+Former "the comments on (run)" — inputs (run); bindings (comment, author, authorName, text, at); promises exactly one record — forms:
+  a record of
+    comments: each Commenting._on (target: run) has (at, author, comment, text)
+      where Registering._username (user: author) has (username: authorName)
+      form a record of
+        at
+        author: authorName
+        comment
+        text
+```
 
 ### the friend list for (user)
 
@@ -1507,6 +1572,208 @@ then
   RequestBoundary.respond (requestId, suggestion)
 ```
 
+### comments.reading.ListComments
+
+Authored path: `comments.reading.ListComments`.
+- Covered by [Comments](../design/compositions/Comments.md), line 5.
+- Covered by [Comments](../design/compositions/Comments.md), line 8.
+
+```reaction
+when RequestBoundary.request (path: "/comments/list", requestId, run, session)
+then
+  Sessioning.use (session)
+```
+
+### comments.reading.ListComments:hidden#2
+
+Authored path: `comments.reading.ListComments`.
+- Covered by [Comments](../design/compositions/Comments.md), line 5.
+- Covered by [Comments](../design/compositions/Comments.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.reading.ListComments
+where
+  earlier, RequestBoundary.request (path: "/comments/list", requestId, run, session)
+  no view "(viewer) can see (run)" with (run, viewer: user)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### comments.reading.ListComments:visible#2
+
+Authored path: `comments.reading.ListComments`.
+- Covered by [Comments](../design/compositions/Comments.md), line 5.
+- Covered by [Comments](../design/compositions/Comments.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.reading.ListComments
+where
+  earlier, RequestBoundary.request (path: "/comments/list", requestId, run, session)
+  view "(viewer) can see (run)" with (run, viewer: user)
+then
+  RequestBoundary.respond (comments: former "the comments on (run)" with (run), requestId)
+```
+
+### comments.writing.DeleteComment
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### comments.writing.DeleteComment:author#2
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.DeleteComment
+where
+  earlier, RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+  view "the author and run of (comment)" with (comment) has (author: user)
+then
+  Commenting.delete (author: user, comment)
+```
+
+### comments.writing.DeleteComment:author#3
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when Commenting.delete (author: user, comment), asked by comments.writing.DeleteComment:author#2
+where
+  earlier, RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+then
+  RequestBoundary.respond (comment, requestId)
+```
+
+### comments.writing.DeleteComment:other#2
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.DeleteComment
+where
+  earlier, RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+  no view "the author and run of (comment)" with (comment) has (author: user)
+  no view "(user) owns the run of (comment)" with (comment, user)
+then
+  RequestBoundary.respond (error: "COMMENT_NOT_FOUND", requestId)
+```
+
+### comments.writing.DeleteComment:owner#2
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.DeleteComment
+where
+  earlier, RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+  view "(user) owns the run of (comment)" with (comment, user)
+  no view "the author and run of (comment)" with (comment) has (author: user)
+then
+  Commenting.remove (comment)
+```
+
+### comments.writing.DeleteComment:owner#3
+
+Authored path: `comments.writing.DeleteComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 13.
+- Covered by [Comments](../design/compositions/Comments.md), line 17.
+
+```reaction
+when Commenting.remove (comment), asked by comments.writing.DeleteComment:owner#2
+where
+  earlier, RequestBoundary.request (comment, path: "/comments/delete", requestId, session)
+then
+  RequestBoundary.respond (comment, requestId)
+```
+
+### comments.writing.PostComment
+
+Authored path: `comments.writing.PostComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 11.
+- Covered by [Comments](../design/compositions/Comments.md), line 16.
+
+```reaction
+when RequestBoundary.request (path: "/comments/post", requestId, run, session, text)
+then
+  Sessioning.use (session)
+```
+
+### comments.writing.PostComment:canceled#2
+
+Authored path: `comments.writing.PostComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 11.
+- Covered by [Comments](../design/compositions/Comments.md), line 16.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.PostComment
+where
+  earlier, RequestBoundary.request (path: "/comments/post", requestId, run, session, text)
+  view "(viewer) can see (run)" with (run, viewer: user)
+  view "the owner and status of (run)" with (run) has (status: "CANCELED")
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
+### comments.writing.PostComment:hidden#2
+
+Authored path: `comments.writing.PostComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 11.
+- Covered by [Comments](../design/compositions/Comments.md), line 16.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.PostComment
+where
+  earlier, RequestBoundary.request (path: "/comments/post", requestId, run, session, text)
+  no view "(viewer) can see (run)" with (run, viewer: user)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### comments.writing.PostComment:open#2
+
+Authored path: `comments.writing.PostComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 11.
+- Covered by [Comments](../design/compositions/Comments.md), line 16.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by comments.writing.PostComment
+where
+  earlier, RequestBoundary.request (path: "/comments/post", requestId, run, session, text)
+  view "(viewer) can see (run)" with (run, viewer: user)
+  view "the owner and status of (run)" with (run) has (status: "ACTIVE")
+then
+  Commenting.post (author: user, target: run, text)
+```
+
+### comments.writing.PostComment:open#3
+
+Authored path: `comments.writing.PostComment`.
+- Covered by [Comments](../design/compositions/Comments.md), line 11.
+- Covered by [Comments](../design/compositions/Comments.md), line 16.
+
+```reaction
+when Commenting.post (author: user, target: run, text, comment), asked by comments.writing.PostComment:open#2
+where
+  earlier, RequestBoundary.request (path: "/comments/post", requestId, run, session, text)
+then
+  RequestBoundary.respond (comment, requestId)
+```
+
 ### notifications.reading.ListNotifications
 
 Authored path: `notifications.reading.ListNotifications`.
@@ -2048,6 +2315,9 @@ not listed here have no explicit input contract.
 - `/auth/logout` — requires `session`
 - `/auth/me` — requires `session`
 - `/auth/register` — requires `password`, `username`
+- `/comments/delete` — requires `session`, `comment`
+- `/comments/list` — requires `session`, `run`
+- `/comments/post` — requires `session`, `run`, `text`
 - `/friends/accept` — requires `session`, `request`
 - `/friends/list` — requires `session`
 - `/friends/reject` — requires `session`, `request`

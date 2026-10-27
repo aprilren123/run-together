@@ -30,7 +30,7 @@ const friends = view("(user) is friends with (other)", ({ user, other }) => [
 // row, so one request would join, or suggest a change to, every friend's run at once.
 
 /** The owner and status of (run). */
-const runInfo = view("the owner and status of (run)", ({ run }, { owner, status }) =>
+export const runInfo = view("the owner and status of (run)", ({ run }, { owner, status }) =>
   where(RunPlanning._all({}).is({ run, owner, status })),
 );
 
@@ -47,7 +47,7 @@ const joined = view("(user) joined (run)", ({ user, run }) =>
 ).holds();
 
 /** (viewer) can see (run): it is their own, its owner is their accepted friend, or they joined it. */
-const canSee = view("(viewer) can see (run)", ({ viewer, run }, _output, { owner }) => [
+export const canSee = view("(viewer) can see (run)", ({ viewer, run }, _output, { owner }) => [
   where(RunPlanning._all({}).is({ run, owner: viewer })),
   where(RunPlanning._all({}).is({ run, owner }), friends({ user: viewer, other: owner })),
   where(joined({ user: viewer, run })),

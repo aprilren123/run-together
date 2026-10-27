@@ -75,8 +75,8 @@ bun run check          # concept specs vs. implementations, generated artifacts,
 
 | Location | What it tests |
 |---|---|
-| `app/tests/concepts/` | One file per concept: Registering, Authenticating, Sessioning, Federating (plus its Commons provider), RunPlanning, Joining, Friending, ChangeSuggesting, and Notifying. Each file has a test of the operational principle, further scenarios (repeated actions, updates, cancellations, removals, several records at once, simultaneous requests), and refusals that check the exact error and that nothing changed. Every action and query of every concept is executed in its own file. |
-| `app/tests/http/` | The compositions through the real HTTP handler: sign-in and sessions, authorization (who may see, join, edit, cancel, suggest, and decide), friend discovery, multi-field suggestions, and notifications |
+| `app/tests/concepts/` | One file per concept: Registering, Authenticating, Sessioning, Federating (plus its Commons provider), RunPlanning, Joining, Friending, ChangeSuggesting, Notifying, and Commenting. Each file has a test of the operational principle, further scenarios (repeated actions, updates, cancellations, removals, several records at once, simultaneous requests), and refusals that check the exact error and that nothing changed. Every action and query of every concept is executed in its own file. |
+| `app/tests/http/` | The compositions through the real HTTP handler: sign-in and sessions, authorization (who may see, join, edit, cancel, suggest, and decide), friend discovery, multi-field suggestions, notifications, and run comments |
 | `app/tests/web/`, `app/tests/runChange.test.ts`, `app/tests/frontend.test.ts` | Frontend logic (session handling, run lists, suggestion and notification text), the RunChange reader, and how the production server serves the built pages |
 | `app/tests/browser/` | Scripts that drive the app in headless Chrome. These aren't `bun test` files, because they need running servers. |
 
@@ -108,25 +108,27 @@ bun tests/browser/auth.browser.ts http://localhost:8091       # sign-in, cookies
 bun tests/browser/profile.browser.ts http://localhost:8091    # Profile layout at four screen widths
 ```
 
-`journey` and `auth` use `BROWSER_MONGODB_URL` to age a session, so they can test what happens when it expires. The discovery check needs a database with no accounts, plus a restart of the backend between its two phases:
+`journey` and `auth` use `BROWSER_MONGODB_URL` to age a session, so they can test what happens when it expires. The discovery and comments checks each have two phases, with a restart of the backend between them to show that data persists. Discovery needs a database with no accounts:
 
 ```bash
 bun tests/browser/discovery.browser.ts http://localhost:8091 fresh
+bun tests/browser/comments.browser.ts http://localhost:8091 post    # prints COMMENTS_SUFFIX=… at the end
 # stop the backend (Ctrl-C) and start it again with the same command
 bun tests/browser/discovery.browser.ts http://localhost:8091 restarted
+COMMENTS_SUFFIX=<the printed value> bun tests/browser/comments.browser.ts http://localhost:8091 restarted
 ```
 
 Each script prints one PASS or FAIL line per check, ends with a summary, and exits with status 1 if any check failed. Set `CHROME` if Chrome isn't at `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. When you're done, drop the `runtogether-browser` database, for example with `bun run db:shell`.
 
 ### Latest results
 
-From [`p3/test-results.txt`](p3/test-results.txt), run on October 14, 2026:
+From [`p3/test-results.txt`](p3/test-results.txt), run on October 27, 2026:
 
-- `bun run check:design` and `bun run check`: passed
-- `bun run test`: **200 tests in 22 files, 200 passed, 0 failed**
-  - 83 concept tests (10 files)
-  - 79 HTTP integration tests (7 files)
-  - 38 other unit tests (5 files)
-- Chrome: discovery 20/20, then 5/5 after a backend restart; journey 65/65; sign-in 38/38; Profile 46/46
+- `bun run check:design`, `bun run check`, and `bun run build`: passed
+- `bun run test`: **232 tests in 25 files, 232 passed, 0 failed**
+  - 93 concept tests (11 files)
+  - 93 HTTP integration tests (8 files)
+  - 46 other unit tests (6 files)
+- Chrome: discovery 20/20 and comments 23/23, then 5/5 and 2/2 after a backend restart; journey 65/65; sign-in 38/38; Profile 46/46
 
-The log also includes a table of which test covers each concept action and refusal, and the bugs these tests found.
+The log also summarizes which tests cover each concept's actions and refusals, and shows that the development database was unchanged by the run.
