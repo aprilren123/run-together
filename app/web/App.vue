@@ -15,6 +15,7 @@ import {
   MapPin,
   History,
   Lightbulb,
+  Mail,
   Route,
   LogOut,
   Pencil,
@@ -28,6 +29,13 @@ import RunCard from "./RunCard.vue";
 import NotificationBell from "./NotificationBell.vue";
 import RunComments from "./RunComments.vue";
 import { createNotifications } from "./notifications.ts";
+import {
+  createInvitations,
+  invitationState,
+  latestPerInvitee,
+  sentLabel,
+  type SentInvitation,
+} from "./invitations.ts";
 import {
   changeRows,
   draftError,
@@ -74,6 +82,7 @@ const postJson = (path: string, body: object = {}) =>
     body: JSON.stringify(body),
   });
 const notifications = createNotifications(postJson);
+const invitations = createInvitations(postJson);
 const notice = ref("");
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 function showNotice(message: string) {
@@ -108,6 +117,7 @@ async function go(tab: Tab) {
   if (tab === "friends") void searchPeople();
   if (tab === "friends" || tab === "profile") await refreshFriends();
   void notifications.load();
+  void invitations.load();
   if (tab !== "friends") await Promise.all([loadRuns(), loadParticipants()]);
 }
 
@@ -147,7 +157,142 @@ async function openRun(run: Run) {
   currentPage.value = "run-details";
   runActionMessage.value = "";
   runDetailsError.value = "";
-  await Promise.all([loadRuns(), loadParticipants(), loadSuggestions()]);
+  await Promise.all([loadRuns(), loadParticipants(), loadSuggestions(), invitations.load()]);
+  if (isOwner.value) await loadRunInvitations();
+}
+
+// ---------- Invitations ----------
+
+/** The owner's invitations to the open run, newest first, to show who was invited and their answers. */
+const runInvitations = ref<SentInvitation[]>([]);
+async function loadRunInvitations() {
+  const run = selectedRunId.value;
+  if (!run) return;
+  try {
+    const response = await postJson("/api/invitations/run", { run });
+    const data = await response.json();
+    if (response.ok && !data.error && selectedRunId.value === run) {
+      runInvitations.value = data.invitations.invitations;
+    }
+  } catch {
+    // The Invited list keeps what it had.
+  }
+}
+/** One row per invited friend, with where they stand: Pending, Declined, Accepted, or Accepted, then left. */
+const invitedRows = computed(() =>
+  selectedRunId.value
+    ? latestPerInvitee(runInvitations.value).map((i) => ({
+        ...i,
+        label: sentLabel(i, selectedParticipants.value),
+      }))
+    : [],
+);
+
+/** The signed-in user's open invitation to the open run, if they have one they can still answer. */
+const myInvitation = computed(() =>
+  invitations.items.value.find(
+    (i) => i.run === selectedRunId.value && invitationState(i) === "open",
+  ),
+);
+
+/** After an invitation is answered, from the bell or the run page, show the run as it now stands. */
+async function afterAnswer() {
+  await Promise.all([loadRuns(), loadParticipants()]);
+}
+async function answerInvitation(how: "accept" | "decline") {
+  const invitation = myInvitation.value;
+  if (!invitation) return;
+  runActionMessage.value = "";
+  const notification = notifications.items.value.find(
+    (n) => n.kind === "RUN_INVITED" && n.run === invitation.run && !n.read,
+  );
+  if (notification) void notifications.markRead(notification.notification);
+  const done = await invitations[how](invitation.invitation);
+  if (done) {
+    await afterAnswer();
+    runActionMessage.value = how === "accept" ? "You joined this run!" : "Invitation declined.";
+  }
+}
+
+// Inviting friends: the owner picks any number of friends who aren't going and have no pending invitation.
+const inviteOpen = ref(false);
+const inviteDialog = ref<HTMLElement | null>(null);
+const inviteSearch = ref("");
+const inviteChosen = ref<string[]>([]);
+const inviteSending = ref(false);
+const inviteError = ref("");
+
+/** Each friend, with whether they can be invited now, filtered by the search box. */
+const inviteCandidates = computed(() => {
+  const latest = new Map(latestPerInvitee(runInvitations.value).map((i) => [i.invitee, i]));
+  const text = inviteSearch.value.trim().toLowerCase();
+  return myFriends.value
+    .filter((friend) => friend.toLowerCase().includes(text))
+    .sort((a, b) => a.localeCompare(b))
+    .map((friend) => {
+      const invitation = latest.get(friend);
+      const note = selectedParticipants.value.includes(friend)
+        ? "Going"
+        : invitation?.status === "PENDING"
+          ? "Invited"
+          : invitation?.status === "DECLINED"
+            ? "Declined before"
+            : "";
+      return { friend, note, available: note === "" || note === "Declined before" };
+    });
+});
+
+async function openInvite() {
+  inviteSearch.value = "";
+  inviteChosen.value = [];
+  inviteError.value = "";
+  inviteOpen.value = true;
+  await Promise.all([refreshFriends(), loadRunInvitations(), loadParticipants()]);
+}
+
+/** Why one invitation couldn't be sent, from the answer's status. */
+function inviteRefusal(friend: string, status: number | null): string {
+  if (status === null) return `Couldn't reach RunTogether to invite ${friend}.`;
+  if (status === 403) return `${friend} isn't your friend anymore.`;
+  if (status === 404) return `Nobody has the username ${friend}.`;
+  if (status === 409)
+    return `${friend} is already going or invited, or the run can't take invitations.`;
+  return `Couldn't invite ${friend}.`;
+}
+
+async function sendInvites() {
+  const run = selectedRun.value;
+  if (!run || inviteSending.value || inviteChosen.value.length === 0) return;
+  inviteSending.value = true;
+  inviteError.value = "";
+  const chosen = [...inviteChosen.value];
+  const answers = await Promise.all(
+    chosen.map(async (username) => {
+      try {
+        const response = await postJson("/api/invitations/send", { run: run.run, username });
+        const data = await response.json().catch(() => ({}));
+        return response.ok && !data.error ? 200 : response.status;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  await Promise.all([loadRunInvitations(), loadParticipants()]);
+  inviteSending.value = false;
+  const sent = chosen.filter((_, i) => answers[i] === 200);
+  const failed = chosen.flatMap((friend, i) =>
+    answers[i] === 200 ? [] : [inviteRefusal(friend, answers[i] ?? null)],
+  );
+  inviteChosen.value = chosen.filter((_, i) => answers[i] !== 200);
+  if (sent.length) runActionMessage.value = `Invited ${listNames(sent)}.`;
+  if (failed.length) inviteError.value = failed.join(" ");
+  else inviteOpen.value = false;
+}
+
+/** "jamie", "jamie and taylor", or "jamie, taylor, and sam". */
+function listNames(names: string[]): string {
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
 }
 
 /** What the signed-in user may do with the open run. */
@@ -278,13 +423,17 @@ const suggestionDialog = ref<HTMLElement | null>(null);
 const confirmDialog = ref<HTMLElement | null>(null);
 let openedFrom: HTMLElement | null = null;
 watch(
-  [suggestionOpen, confirmCancelOpen],
-  async ([suggesting, confirming], [wasSuggesting, wasConfirming]) => {
-    if ((suggesting && !wasSuggesting) || (confirming && !wasConfirming)) {
+  [suggestionOpen, confirmCancelOpen, inviteOpen],
+  async ([suggesting, confirming, inviting], [wasSuggesting, wasConfirming, wasInviting]) => {
+    if (
+      (suggesting && !wasSuggesting) ||
+      (confirming && !wasConfirming) ||
+      (inviting && !wasInviting)
+    ) {
       openedFrom = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       await nextTick();
-      (suggesting ? suggestionDialog : confirmDialog).value?.focus();
-    } else if (!suggesting && !confirming) {
+      (suggesting ? suggestionDialog : confirming ? confirmDialog : inviteDialog).value?.focus();
+    } else if (!suggesting && !confirming && !inviting) {
       if (openedFrom?.isConnected) openedFrom.focus();
       openedFrom = null;
     }
@@ -773,7 +922,13 @@ async function createRun() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadRuns(), loadParticipants(), refreshFriends(), notifications.load()]);
+  await Promise.all([
+    loadRuns(),
+    loadParticipants(),
+    refreshFriends(),
+    notifications.load(),
+    invitations.load(),
+  ]);
 });
 </script>
 
@@ -794,7 +949,12 @@ onMounted(async () => {
           }}</span>
           <span class="account-name" data-testid="signed-in-username">{{ signedInAs }}</span>
         </button>
-        <NotificationBell :notifications="notifications" @open="openRunById" />
+        <NotificationBell
+          :notifications="notifications"
+          :invitations="invitations"
+          @open="openRunById"
+          @answered="afterAnswer"
+        />
       </div>
     </header>
     <p v-if="sessionError" class="form-error error-banner" role="alert">{{ sessionError }}</p>
@@ -849,7 +1009,12 @@ onMounted(async () => {
         <h1>My Runs</h1>
         <p class="page-subtitle">Runs you host or joined.</p>
       </div>
-      <NotificationBell :notifications="notifications" @open="openRunById" />
+      <NotificationBell
+        :notifications="notifications"
+        :invitations="invitations"
+        @open="openRunById"
+        @answered="afterAnswer"
+      />
     </header>
     <div class="segmented" role="tablist" aria-label="My runs">
       <button
@@ -1142,6 +1307,54 @@ onMounted(async () => {
       {{ runDetailsError }}
     </p>
 
+    <!-- An invitation to this run that the signed-in user can still answer -->
+    <section
+      v-if="myInvitation && !isOwner"
+      class="invite-banner"
+      aria-labelledby="invite-banner-title"
+    >
+      <span class="empty-icon" aria-hidden="true"><Mail :size="18" /></span>
+      <div class="invite-banner-body">
+        <p id="invite-banner-title">
+          <strong>{{ myInvitation.inviter }}</strong> invited you to this run.
+        </p>
+        <div class="invite-banner-actions">
+          <button
+            type="button"
+            class="create-run-button"
+            :disabled="invitations.answering.value !== null"
+            :aria-busy="invitations.answering.value === myInvitation.invitation"
+            @click="answerInvitation('accept')"
+          >
+            {{
+              invitations.answering.value === myInvitation.invitation ? "Joining…" : "Accept & Join"
+            }}
+          </button>
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="invitations.answering.value !== null"
+            @click="answerInvitation('decline')"
+          >
+            Decline
+          </button>
+        </div>
+      </div>
+    </section>
+    <p
+      v-if="
+        invitations.feedback.value?.error &&
+        invitations.items.value.some(
+          (i) =>
+            i.invitation === invitations.feedback.value?.invitation && i.run === selectedRun?.run,
+        )
+      "
+      class="form-error error-banner"
+      role="alert"
+    >
+      {{ invitations.feedback.value.text }}
+    </p>
+
     <!-- What the signed-in user can do with this run -->
     <section v-if="runIsOpen" class="run-actions" aria-label="Run actions">
       <template v-if="isOwner">
@@ -1241,7 +1454,17 @@ onMounted(async () => {
     </section>
 
     <section class="run-details-section" aria-labelledby="going-title">
-      <h2 id="going-title">Going ({{ selectedParticipants.length }})</h2>
+      <div class="section-title-row">
+        <h2 id="going-title">Going ({{ selectedParticipants.length }})</h2>
+        <button
+          v-if="isOwner && runIsOpen"
+          type="button"
+          class="outline-action-button invite-button"
+          @click="openInvite"
+        >
+          <UserPlus :size="16" aria-hidden="true" /> Invite friends
+        </button>
+      </div>
       <div class="participants-list">
         <div v-for="participant in selectedParticipants" :key="participant" class="participant">
           <span class="small-avatar" aria-hidden="true">{{
@@ -1250,6 +1473,23 @@ onMounted(async () => {
           ><strong>{{ participant }}</strong
           ><span v-if="participant === selectedRun.owner" class="comment-host">Host</span>
         </div>
+      </div>
+      <!-- Only the owner sees who was invited and how they answered -->
+      <div v-if="isOwner && invitedRows.length" class="invited-list">
+        <h3 id="invited-title">Invited ({{ invitedRows.length }})</h3>
+        <ul aria-labelledby="invited-title">
+          <li v-for="row in invitedRows" :key="row.invitation" class="invited-row">
+            <span class="search-result-name"
+              ><span class="small-avatar" aria-hidden="true">{{
+                row.invitee.charAt(0).toUpperCase()
+              }}</span
+              >{{ row.invitee }}</span
+            >
+            <span class="invite-status" :class="`invite-status-${row.status.toLowerCase()}`">{{
+              row.label
+            }}</span>
+          </li>
+        </ul>
       </div>
     </section>
     <section class="run-details-section" aria-labelledby="description-title">
@@ -1268,7 +1508,12 @@ onMounted(async () => {
         <h1>Friends</h1>
         <p class="page-subtitle">Your friends' runs show up on Home.</p>
       </div>
-      <NotificationBell :notifications="notifications" @open="openRunById" />
+      <NotificationBell
+        :notifications="notifications"
+        :invitations="invitations"
+        @open="openRunById"
+        @answered="afterAnswer"
+      />
     </header>
 
     <section class="friends-section" aria-labelledby="find-title">
@@ -1422,7 +1667,12 @@ onMounted(async () => {
   <main v-else-if="currentPage === 'profile'" class="profile-page">
     <header>
       <h1>Profile</h1>
-      <NotificationBell :notifications="notifications" @open="openRunById" />
+      <NotificationBell
+        :notifications="notifications"
+        :invitations="invitations"
+        @open="openRunById"
+        @answered="afterAnswer"
+      />
     </header>
     <section class="profile-card">
       <div class="profile-avatar" aria-hidden="true">
@@ -1463,6 +1713,96 @@ onMounted(async () => {
       <p v-if="sessionError" class="form-error" role="alert">{{ sessionError }}</p>
     </section>
   </main>
+
+  <!-- Invite friends: pick any number of friends who aren't going or already invited -->
+  <div
+    v-if="inviteOpen && selectedRun"
+    class="suggestion-backdrop"
+    @click.self="inviteOpen = false"
+    @keydown.esc="inviteOpen = false"
+  >
+    <div
+      ref="inviteDialog"
+      class="suggestion-modal invite-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="invite-title"
+      tabindex="-1"
+    >
+      <div class="suggestion-modal-header">
+        <h2 id="invite-title">Invite friends</h2>
+        <button
+          type="button"
+          class="icon-button"
+          aria-label="Close invitations"
+          @click="inviteOpen = false"
+        >
+          <X :size="22" aria-hidden="true" />
+        </button>
+      </div>
+      <p class="muted-text">
+        They'll get an invitation in their notifications and can join with one tap.
+      </p>
+      <form class="invite-form" @submit.prevent="sendInvites">
+        <div v-if="myFriends.length" class="search-field">
+          <Search :size="18" aria-hidden="true" />
+          <input
+            v-model="inviteSearch"
+            type="search"
+            placeholder="Search your friends"
+            aria-label="Search your friends"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        </div>
+        <div v-if="myFriends.length === 0" class="empty-state">
+          <span class="empty-icon" aria-hidden="true"><Users :size="22" /></span>
+          <p><strong>No friends to invite yet.</strong></p>
+          <p class="muted-text">Add friends from the Friends tab, then invite them here.</p>
+        </div>
+        <p v-else-if="inviteCandidates.length === 0" class="muted-text">
+          No friends match “{{ inviteSearch }}”.
+        </p>
+        <fieldset v-else class="invite-choices">
+          <legend class="visually-hidden">Friends to invite</legend>
+          <label
+            v-for="c in inviteCandidates"
+            :key="c.friend"
+            class="invite-choice"
+            :class="{ unavailable: !c.available }"
+            :data-friend="c.friend"
+          >
+            <input
+              v-model="inviteChosen"
+              type="checkbox"
+              :value="c.friend"
+              :disabled="!c.available || inviteSending"
+            />
+            <span class="small-avatar" aria-hidden="true">{{
+              c.friend.charAt(0).toUpperCase()
+            }}</span>
+            <span class="invite-choice-name">{{ c.friend }}</span>
+            <span v-if="c.note" class="invite-choice-note">{{ c.note }}</span>
+          </label>
+        </fieldset>
+        <p v-if="inviteError" class="form-error" role="alert">{{ inviteError }}</p>
+        <button
+          class="save-run-button"
+          type="submit"
+          :disabled="inviteChosen.length === 0 || inviteSending"
+          :aria-busy="inviteSending"
+        >
+          {{
+            inviteSending
+              ? "Sending…"
+              : inviteChosen.length > 1
+                ? `Send ${inviteChosen.length} invitations`
+                : "Send invitation"
+          }}
+        </button>
+      </form>
+    </div>
+  </div>
 
   <!-- Suggest a change: any of the run's time, meeting point, distance, pace, and description -->
   <div

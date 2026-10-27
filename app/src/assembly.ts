@@ -6,10 +6,12 @@ import { ChangeSuggestingConcept } from "./concepts/ChangeSuggesting.ts";
 import { FriendingConcept } from "./concepts/Friending.ts";
 import { NotifyingConcept } from "./concepts/Notifying.ts";
 import { CommentingConcept } from "./concepts/Commenting.ts";
+import { InvitingConcept } from "./concepts/Inviting.ts";
 import type { Provider } from "./concepts/Federating/provider.ts";
 import { composition } from "./compositions/RunTogether.ts";
 import { composition as notifications } from "./compositions/Notifications.ts";
 import { composition as comments } from "./compositions/Comments.ts";
+import { composition as invitations } from "./compositions/Invitations.ts";
 import { composition as accounts } from "./compositions/reusable/accounts.ts";
 import { composition as passwords } from "./compositions/reusable/passwords.ts";
 import { composition as commons } from "./compositions/reusable/commons.ts";
@@ -45,6 +47,7 @@ export function assembleApplication({
       Friending: new FriendingConcept(database),
       Notifying: new NotifyingConcept(database),
       Commenting: new CommentingConcept(database),
+      Inviting: new InvitingConcept(database),
       Registering: registering.floors!.mongo(resources, "Registering"),
       Authenticating: authenticating.floors!.mongo(resources, "Authenticating"),
       Sessioning: sessioning.floors!.mongo(resources, "Sessioning"),
@@ -58,6 +61,7 @@ export function assembleApplication({
       RunTogether: composition,
       notifications,
       comments,
+      invitations,
       reusable: { accounts, passwords, commons },
     },
 

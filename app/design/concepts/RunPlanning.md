@@ -101,4 +101,7 @@ _all() : many (run: Run, owner: User, startTime: String, distance: Number, pace:
 
 _fits(run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String, details?: String) : one (fits: Flag)
   Answers whether run is in Runs with RunStatus ACTIVE and would still have valid details and flexibility ranges with the given values in place of its own, so update would accept them. A value left out keeps the run's own.
+
+_upcoming(run: Run) : optional (upcoming: Flag)
+  Answers whether run's startTime is now or later, or no row for an unknown run. Canceled runs are answered the same way, by their startTime.
 ```

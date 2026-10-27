@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { ago, messageFor, type Notification } from "../../web/notifications.ts";
+import {
+  ago,
+  createNotifications,
+  messageFor,
+  type Notification,
+} from "../../web/notifications.ts";
 import type { Run } from "../../web/runs.ts";
 import { changeRows, draftError, draftFrom, proposedChange } from "../../web/suggestions.ts";
 
@@ -88,5 +93,51 @@ describe("Notification messages", () => {
     expect(ago(base.at, at + 5 * 60_000)).toBe("5 min ago");
     expect(ago(base.at, at + 3 * 3_600_000)).toBe("3 h ago");
     expect(ago(base.at, at + 2 * 86_400_000)).toBe("2 d ago");
+  });
+});
+
+describe("The bell's notifications", () => {
+  test("a load still in flight when everything is marked read doesn't bring the unread badge back", async () => {
+    const unread = {
+      notification: "n1",
+      actor: "april",
+      run: "run-1",
+      kind: "RUN_INVITED",
+      at: "2026-10-27T13:41:00.000Z",
+      read: false,
+      startTime: "2026-11-07T10:00",
+    };
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let lists = 0;
+    const post = async (path: string) => {
+      if (path !== "/api/notifications/list") return Response.json({});
+      // The first list answers at once; the second is held until after Mark all read.
+      if (++lists === 2) await held;
+      return Response.json({ notifications: { notifications: [{ ...unread }] } });
+    };
+    const bell = createNotifications(post);
+    await bell.load();
+    expect(bell.unread.value).toBe(1);
+
+    const loading = bell.load();
+    await bell.markAllRead();
+    expect(bell.unread.value).toBe(0);
+    release();
+    await loading;
+    expect(bell.unread.value).toBe(0);
+  });
+
+  test("an invitation reads as one, naming who sent it and the run", () => {
+    const n = {
+      notification: "n1",
+      actor: "april",
+      run: "run-1",
+      kind: "RUN_INVITED",
+      at: "2026-10-27T13:41:00.000Z",
+      read: false,
+      startTime: "2026-11-07T10:00",
+    } as const;
+    expect(messageFor(n)).toBe("april invited you to Morning run on Sat, Nov 7.");
   });
 });

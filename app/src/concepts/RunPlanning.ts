@@ -113,7 +113,10 @@ function stillActive(run: string, owner: string) {
 export class RunPlanningConcept {
   private readonly runs: Collection<Run>;
 
-  constructor(db: Db) {
+  constructor(
+    db: Db,
+    private readonly clock: () => Date = () => new Date(),
+  ) {
     this.runs = db.collection<Run>("runplanning.runs");
   }
 
@@ -276,6 +279,13 @@ export class RunPlanningConcept {
     const fits =
       !!existing && existing.status !== "CANCELED" && validUpdate(withChanges(existing, changes));
     return { fits };
+  }
+
+  /** Whether run starts now or later. Start times are local wall-clock times, read in the server's zone. */
+  async _upcoming({ run }: { run: string }) {
+    const existing = await this.runs.findOne({ _id: run });
+    if (!existing) return [];
+    return [{ upcoming: new Date(existing.startTime).getTime() >= this.clock().getTime() }];
   }
 
   async _all(_input: Record<string, never>) {

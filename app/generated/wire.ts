@@ -213,6 +213,85 @@ export type RunTogetherWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
   };
+  "/invitations/accept": {
+    input: {
+      "invitation": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>[0], ["invitation"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["_get"]>[0], ["invitation"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "event": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>>, ["event"]>>;
+      "invitation": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>[0], ["invitation"]>>;
+    } | {
+      "event": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>>, ["event"]>>;
+      "invitation": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>[0], ["invitation"]>>;
+    } | {
+      "event": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>>, ["event"]>>;
+      "invitation": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["accept"]>[0], ["invitation"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_JOINED" | "CANNOT_ACCEPT" | "INVALID_INPUT" | "INVITATION_NOT_FOUND" | "NOT_FRIENDS" | "NOT_SIGNED_IN" | "RUN_CANCELED" | "RUN_NOT_FOUND" | "RUN_STARTED" };
+  };
+  "/invitations/decline": {
+    input: {
+      "invitation": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["decline"]>[0], ["invitation"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["_get"]>[0], ["invitation"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["decline"]>[0], ["invitation"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["decline"]>>, ["invitation"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "invitation": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["decline"]>[0], ["invitation"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["decline"]>>, ["invitation"]>]>>;
+    };
+    error: { error: AppWideError | "CANNOT_DECLINE" | "INVALID_INPUT" | "INVITATION_NOT_FOUND" | "NOT_SIGNED_IN" };
+  };
+  "/invitations/list": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "invitations": {
+        "invitations": {
+          "answered": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_to"]>>>, ["answered"]>>;
+          "distance": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["distance"]>>;
+          "invitation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_to"]>>>, ["invitation"]>>;
+          "inviter": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+          "location": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["location"]>>;
+          "pace": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["pace"]>>;
+          "run": Jsonify<AllOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_to"]>>>, ["event"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>]>>;
+          "runStatus": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["status"]>>;
+          "sent": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_to"]>>>, ["sent"]>>;
+          "startTime": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["startTime"]>>;
+          "status": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_to"]>>>, ["status"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_SIGNED_IN" };
+  };
+  "/invitations/run": {
+    input: {
+      "run": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+    };
+    output: {
+      "invitations": {
+        "invitations": {
+          "answered": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_for"]>>>, ["answered"]>>;
+          "invitation": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_for"]>>>, ["invitation"]>>;
+          "invitee": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Registering"]["_username"]>>>, ["username"]>>;
+          "sent": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_for"]>>>, ["sent"]>>;
+          "status": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["_for"]>>>, ["status"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_NOT_FOUND" };
+  };
+  "/invitations/send": {
+    input: {
+      "run": Jsonify<OneOf<[AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["RunPlanning"]["_all"]>>>, ["run"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Inviting"]["invite"]>[0], ["event"]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["_all"]>>>, ["event"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Registering"]["_byUsername"]>[0], ["username"]>>;
+    };
+    output: {
+      "invitation": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Inviting"]["invite"]>>, ["invitation"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_INVITED" | "ALREADY_JOINED" | "CANNOT_INVITE_SELF" | "INVALID_INPUT" | "NOT_FRIENDS" | "NOT_OWNER" | "NOT_SIGNED_IN" | "RUN_CANCELED" | "RUN_NOT_FOUND" | "RUN_STARTED" | "USER_NOT_FOUND" };
+  };
   "/notifications/list": {
     input: {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["use"]>[0], ["session"]>>;
@@ -297,7 +376,7 @@ export type RunTogetherWire = {
     output: {
       "participation": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Joining"]["join"]>>, ["participation"]>>;
     };
-    error: { error: AppWideError | "ALREADY_JOINED" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_CANCELED" | "RUN_NOT_FOUND" };
+    error: { error: AppWideError | "ALREADY_JOINED" | "CANNOT_ACCEPT" | "INVALID_INPUT" | "NOT_SIGNED_IN" | "OWN_RUN" | "RUN_CANCELED" | "RUN_NOT_FOUND" };
   };
   "/runs/leave": {
     input: {

@@ -20,7 +20,7 @@ const { RunPlanning, Joining, ChangeSuggesting, Friending, Registering, Sessioni
 // ---------- Who may see what ----------
 
 /** (user) and (other) are accepted friends, whichever of them sent the request. */
-const friends = view("(user) is friends with (other)", ({ user, other }) => [
+export const friends = view("(user) is friends with (other)", ({ user, other }) => [
   where(Friending._friendships({}).is({ user1: user, user2: other })),
   where(Friending._friendships({}).is({ user1: other, user2: user })),
 ]).holds();
@@ -42,7 +42,7 @@ const suggestionInfo = view(
 );
 
 /** (user) joined (run). */
-const joined = view("(user) joined (run)", ({ user, run }) =>
+export const joined = view("(user) joined (run)", ({ user, run }) =>
   where(Joining._all({}).is({ user, event: run })),
 ).holds();
 

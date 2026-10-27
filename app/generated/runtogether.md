@@ -129,6 +129,33 @@ Defined in [Friending](../design/concepts/Friending.md), line 1.
 - `Friending` — instance of `Friending` — [Application types](../design/types.md), line 41.
   - `User` is `Registering.User` — [Application types](../design/types.md), line 42.
 
+### Inviting
+
+Defined in [Inviting](../design/concepts/Inviting.md), line 1.
+
+#### Actions
+
+- `invite(inviter: User, invitee: User, event: Event) : returns (invitation: Invitation)`
+  - Refuses `CANNOT_INVITE_SELF`: You can't invite yourself.
+  - Refuses `ALREADY_INVITED`: This person already has a pending invitation to this event.
+- `accept(invitee: User, invitation: Invitation) : returns (invitation: Invitation, event: Event, inviter: User)`
+  - Refuses `CANNOT_ACCEPT`: This invitation can't be accepted.
+- `decline(invitee: User, invitation: Invitation) : returns (invitation: Invitation)`
+  - Refuses `CANNOT_DECLINE`: This invitation can't be declined.
+
+#### Queries
+
+- `_get(invitation: Invitation) : optional (inviter: User, invitee: User, event: Event, status: InvitationStatus)`
+- `_pending(invitee: User, event: Event) : optional (invitation: Invitation, inviter: User)`
+- `_to(invitee: User) : many (invitation: Invitation, inviter: User, event: Event, status: InvitationStatus, sent: DateTime, answered: DateTime)`
+- `_for(event: Event) : many (invitation: Invitation, invitee: User, status: InvitationStatus, sent: DateTime, answered: DateTime)`
+
+#### Instances
+
+- `Inviting` — instance of `Inviting` — [Application types](../design/types.md), line 54.
+  - `Event` is `RunPlanning.Run` — [Application types](../design/types.md), line 56.
+  - `User` is `Registering.User` — [Application types](../design/types.md), line 55.
+
 ### Joining
 
 Defined in [Joining](../design/concepts/Joining.md), line 1.
@@ -217,6 +244,7 @@ Defined in [RunPlanning](../design/concepts/RunPlanning.md), line 1.
 
 - `_all() : many (run: Run, owner: User, startTime: String, distance: Number, pace: Number, location: String, details: String, earliestTime: String, latestTime: String, minDistance: Number, maxDistance: Number, minPace: Number, maxPace: Number, status: RunStatus)`
 - `_fits(run: Run, startTime?: String, distance?: Number, pace?: Number, location?: String, details?: String) : one (fits: Flag)`
+- `_upcoming(run: Run) : optional (upcoming: Flag)`
 
 #### Instances
 
@@ -254,6 +282,16 @@ Concrete types:
 ## Views
 
 _Views name reusable conditions. Multiple `where` blocks are alternatives._
+
+### (run) hasn't started
+
+Authored path: `invitations.access.upcoming`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 3.
+
+```view
+(run) hasn't started — inputs (run); outputs (); bindings ()
+  where RunPlanning._upcoming (run) has (upcoming: true)
+```
 
 ### (user) is friends with (other)
 
@@ -357,6 +395,7 @@ Authored path: `RunTogether.inRequest`.
 
 Authored path: `RunTogether.canSee`.
 - Covered by [Comments](../design/compositions/Comments.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
 - Covered by [RunTogether](../design/compositions/RunTogether.md), line 5.
 
 ```view
@@ -376,6 +415,16 @@ Authored path: `RunTogether.suggestionInfo`.
 ```view
 the people and run of (suggestion) — inputs (suggestion); outputs (suggester, decider, event, change); bindings () — answers any number of (suggester, decider, event, change)
   where ChangeSuggesting._all () has (change, decider, event, suggester, suggestion)
+```
+
+### the people, run, and status of (invitation)
+
+Authored path: `invitations.access.invitationInfo`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+
+```view
+the people, run, and status of (invitation) — inputs (invitation); outputs (inviter, invitee, event, status); bindings () — answers any number of (inviter, invitee, event, status)
+  where Inviting._get (invitation) has (event, invitee, inviter, status)
 ```
 
 ## Formers
@@ -434,6 +483,50 @@ Former "the friend request list for (user)" — inputs (user); bindings (request
         recipient: recipientName
         request
         sender: senderName
+```
+
+### the invitations (user) received
+
+Authored path: `invitations.reading.MyInvitationList`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+
+```former
+Former "the invitations (user) received" — inputs (user); bindings (invitation, inviter, inviterName, run, status, sent, answered, startTime, distance, pace, location, runStatus); promises exactly one record — forms:
+  a record of
+    invitations: each Inviting._to (invitee: user) has (answered, event: run, invitation, inviter, sent, status)
+      where view "(viewer) can see (run)" with (run, viewer: user)
+      where Registering._username (user: inviter) has (username: inviterName)
+      where RunPlanning._all () has (distance, location, pace, run, startTime, status: runStatus)
+      form a record of
+        answered
+        distance
+        invitation
+        inviter: inviterName
+        location
+        pace
+        run
+        runStatus
+        sent
+        startTime
+        status
+```
+
+### the invitations to (run)
+
+Authored path: `invitations.reading.RunInvitationList`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+
+```former
+Former "the invitations to (run)" — inputs (run); bindings (invitation, invitee, username, status, sent, answered); promises exactly one record — forms:
+  a record of
+    invitations: each Inviting._for (event: run) has (answered, invitation, invitee, sent, status)
+      where Registering._username (user: invitee) has (username)
+      form a record of
+        answered
+        invitation
+        invitee: username
+        sent
+        status
 ```
 
 ### the notifications of (user)
@@ -1774,6 +1867,536 @@ then
   RequestBoundary.respond (comment, requestId)
 ```
 
+### invitations.answering.AcceptInvitation
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### invitations.answering.AcceptInvitation:answered#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (invitee: user)
+  no view "the people, run, and status of (invitation)" with (invitation) has (invitee: user, status: "PENDING")
+then
+  Inviting.accept (invitation, invitee: user)
+```
+
+### invitations.answering.AcceptInvitation:answered#3
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Inviting.accept (invitation, invitee: user, event), asked by invitations.answering.AcceptInvitation:answered#2
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+then
+  RequestBoundary.respond (event, invitation, requestId)
+```
+
+### invitations.answering.AcceptInvitation:canceled#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, status: "PENDING")
+  view "the owner and status of (run)" with (run: event) has (status: "CANCELED")
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
+### invitations.answering.AcceptInvitation:going#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, inviter, status: "PENDING")
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  view "(run) hasn't started" with (run: event)
+  view "(user) is friends with (other)" with (other: inviter, user)
+  view "(user) joined (run)" with (run: event, user)
+then
+  Inviting.accept (invitation, invitee: user)
+```
+
+### invitations.answering.AcceptInvitation:going#3
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Inviting.accept (invitation, invitee: user, event), asked by invitations.answering.AcceptInvitation:going#2
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+then
+  RequestBoundary.respond (event, invitation, requestId)
+```
+
+### invitations.answering.AcceptInvitation:join#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, inviter, status: "PENDING")
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  view "(run) hasn't started" with (run: event)
+  view "(user) is friends with (other)" with (other: inviter, user)
+  no view "(user) joined (run)" with (run: event, user)
+then
+  Joining.join (event, user)
+```
+
+### invitations.answering.AcceptInvitation:join#3
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Joining.join (event, user, participation), asked by invitations.answering.AcceptInvitation:join#2
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+then
+  Inviting.accept (invitation, invitee: user)
+```
+
+### invitations.answering.AcceptInvitation:join#4
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Inviting.accept (invitation, invitee: user, event), asked by invitations.answering.AcceptInvitation:join#3
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+then
+  RequestBoundary.respond (event, invitation, requestId)
+```
+
+### invitations.answering.AcceptInvitation:no-run#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, status: "PENDING")
+  no RunPlanning._all () has (run: event)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### invitations.answering.AcceptInvitation:not-friends#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, inviter, status: "PENDING")
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  view "(run) hasn't started" with (run: event)
+  no view "(user) is friends with (other)" with (other: inviter, user)
+then
+  RequestBoundary.respond (error: "NOT_FRIENDS", requestId)
+```
+
+### invitations.answering.AcceptInvitation:not-yours#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  no view "the people, run, and status of (invitation)" with (invitation) has (invitee: user)
+then
+  RequestBoundary.respond (error: "INVITATION_NOT_FOUND", requestId)
+```
+
+### invitations.answering.AcceptInvitation:started#2
+
+Authored path: `invitations.answering.AcceptInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 23.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.AcceptInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/accept", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (event, invitee: user, status: "PENDING")
+  view "the owner and status of (run)" with (run: event) has (status: "ACTIVE")
+  no view "(run) hasn't started" with (run: event)
+then
+  RequestBoundary.respond (error: "RUN_STARTED", requestId)
+```
+
+### invitations.answering.DeclineInvitation
+
+Authored path: `invitations.answering.DeclineInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 20.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 24.
+
+```reaction
+when RequestBoundary.request (invitation, path: "/invitations/decline", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### invitations.answering.DeclineInvitation:mine#2
+
+Authored path: `invitations.answering.DeclineInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 20.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 24.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.DeclineInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/decline", requestId, session)
+  view "the people, run, and status of (invitation)" with (invitation) has (invitee: user)
+then
+  Inviting.decline (invitation, invitee: user)
+```
+
+### invitations.answering.DeclineInvitation:mine#3
+
+Authored path: `invitations.answering.DeclineInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 20.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 24.
+
+```reaction
+when Inviting.decline (invitation, invitee: user), asked by invitations.answering.DeclineInvitation:mine#2
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/decline", requestId, session)
+then
+  RequestBoundary.respond (invitation, requestId)
+```
+
+### invitations.answering.DeclineInvitation:not-yours#2
+
+Authored path: `invitations.answering.DeclineInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 20.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 24.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.answering.DeclineInvitation
+where
+  earlier, RequestBoundary.request (invitation, path: "/invitations/decline", requestId, session)
+  no view "the people, run, and status of (invitation)" with (invitation) has (invitee: user)
+then
+  RequestBoundary.respond (error: "INVITATION_NOT_FOUND", requestId)
+```
+
+### invitations.answering.JoiningAcceptsInvitation
+
+Authored path: `invitations.answering.JoiningAcceptsInvitation`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 18.
+
+```reaction
+when Joining.join (event, user, participation)
+at the flow's settlement frontier
+where
+  Inviting._pending (event, invitee: user) has (invitation)
+then
+  Inviting.accept (invitation, invitee: user)
+```
+
+### invitations.reading.ListMyInvitations
+
+Authored path: `invitations.reading.ListMyInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 15.
+
+```reaction
+when RequestBoundary.request (path: "/invitations/list", requestId, session)
+then
+  Sessioning.use (session)
+```
+
+### invitations.reading.ListMyInvitations#2
+
+Authored path: `invitations.reading.ListMyInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 15.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.reading.ListMyInvitations
+where
+  earlier, RequestBoundary.request (path: "/invitations/list", requestId, session)
+then
+  RequestBoundary.respond (invitations: former "the invitations (user) received" with (user), requestId)
+```
+
+### invitations.reading.ListRunInvitations
+
+Authored path: `invitations.reading.ListRunInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 14.
+
+```reaction
+when RequestBoundary.request (path: "/invitations/run", requestId, run, session)
+then
+  Sessioning.use (session)
+```
+
+### invitations.reading.ListRunInvitations:hidden#2
+
+Authored path: `invitations.reading.ListRunInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.reading.ListRunInvitations
+where
+  earlier, RequestBoundary.request (path: "/invitations/run", requestId, run, session)
+  no view "(viewer) can see (run)" with (run, viewer: user)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### invitations.reading.ListRunInvitations:not-owner#2
+
+Authored path: `invitations.reading.ListRunInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.reading.ListRunInvitations
+where
+  earlier, RequestBoundary.request (path: "/invitations/run", requestId, run, session)
+  view "(viewer) can see (run)" with (run, viewer: user)
+  no view "the owner and status of (run)" with (run) has (owner: user)
+then
+  RequestBoundary.respond (error: "NOT_OWNER", requestId)
+```
+
+### invitations.reading.ListRunInvitations:owner#2
+
+Authored path: `invitations.reading.ListRunInvitations`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 11.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 14.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.reading.ListRunInvitations
+where
+  earlier, RequestBoundary.request (path: "/invitations/run", requestId, run, session)
+  view "the owner and status of (run)" with (run) has (owner: user)
+then
+  RequestBoundary.respond (invitations: former "the invitations to (run)" with (run), requestId)
+```
+
+### invitations.sending.InvitationNotifiesInvitee
+
+Authored path: `invitations.sending.InvitationNotifiesInvitee`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+
+```reaction
+when Inviting.invite (event, invitee, inviter, invitation)
+then
+  Notifying.notify (actor: inviter, kind: "RUN_INVITED", recipient: invitee, subject: event)
+```
+
+### invitations.sending.InviteFriend
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+then
+  Sessioning.use (session)
+```
+
+### invitations.sending.InviteFriend:canceled#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "CANCELED")
+then
+  RequestBoundary.respond (error: "RUN_CANCELED", requestId)
+```
+
+### invitations.sending.InviteFriend:going#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "ACTIVE")
+  view "(run) hasn't started" with (run)
+  Registering._byUsername (username) has (user: invitee)
+  view "(user) is friends with (other)" with (other: invitee, user)
+  view "(user) joined (run)" with (run, user: invitee)
+then
+  RequestBoundary.respond (error: "ALREADY_JOINED", requestId)
+```
+
+### invitations.sending.InviteFriend:hidden#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  no view "(viewer) can see (run)" with (run, viewer: user)
+then
+  RequestBoundary.respond (error: "RUN_NOT_FOUND", requestId)
+```
+
+### invitations.sending.InviteFriend:invite#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "ACTIVE")
+  view "(run) hasn't started" with (run)
+  Registering._byUsername (username) has (user: invitee)
+  view "(user) is friends with (other)" with (other: invitee, user)
+  no view "(user) joined (run)" with (run, user: invitee)
+then
+  Inviting.invite (event: run, invitee, inviter: user)
+```
+
+### invitations.sending.InviteFriend:invite#3
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Inviting.invite (event: run, invitee, inviter: user, invitation), asked by invitations.sending.InviteFriend:invite#2
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+then
+  RequestBoundary.respond (invitation, requestId)
+```
+
+### invitations.sending.InviteFriend:not-friends#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "ACTIVE")
+  view "(run) hasn't started" with (run)
+  Registering._byUsername (username) has (user: invitee)
+  no view "(user) is friends with (other)" with (other: invitee, user)
+then
+  RequestBoundary.respond (error: "NOT_FRIENDS", requestId)
+```
+
+### invitations.sending.InviteFriend:not-owner#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "(viewer) can see (run)" with (run, viewer: user)
+  no view "the owner and status of (run)" with (run) has (owner: user)
+then
+  RequestBoundary.respond (error: "NOT_OWNER", requestId)
+```
+
+### invitations.sending.InviteFriend:started#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "ACTIVE")
+  no view "(run) hasn't started" with (run)
+then
+  RequestBoundary.respond (error: "RUN_STARTED", requestId)
+```
+
+### invitations.sending.InviteFriend:unknown#2
+
+Authored path: `invitations.sending.InviteFriend`.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 5.
+- Covered by [Invitations](../design/compositions/Invitations.md), line 8.
+
+```reaction
+when Sessioning.use (session, subject: user), asked by invitations.sending.InviteFriend
+where
+  earlier, RequestBoundary.request (path: "/invitations/send", requestId, run, session, username)
+  view "the owner and status of (run)" with (run) has (owner: user, status: "ACTIVE")
+  view "(run) hasn't started" with (run)
+  no Registering._byUsername (username)
+then
+  RequestBoundary.respond (error: "USER_NOT_FOUND", requestId)
+```
+
 ### notifications.reading.ListNotifications
 
 Authored path: `notifications.reading.ListNotifications`.
@@ -2325,6 +2948,11 @@ not listed here have no explicit input contract.
 - `/friends/request` — requires `session`, `username`
 - `/friends/requests` — requires `session`
 - `/friends/search` — requires `session`, `text`
+- `/invitations/accept` — requires `session`, `invitation`
+- `/invitations/decline` — requires `session`, `invitation`
+- `/invitations/list` — requires `session`
+- `/invitations/run` — requires `session`, `run`
+- `/invitations/send` — requires `session`, `run`, `username`
 - `/notifications/list` — requires `session`
 - `/notifications/read` — requires `session`, `notification`
 - `/notifications/read-all` — requires `session`

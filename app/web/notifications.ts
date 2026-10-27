@@ -11,7 +11,8 @@ export interface Notification {
     | "RUN_EDITED"
     | "RUN_CANCELED"
     | "SUGGESTION_ACCEPTED"
-    | "SUGGESTION_REJECTED";
+    | "SUGGESTION_REJECTED"
+    | "RUN_INVITED";
   at: string;
   read: boolean;
   startTime: string | null;
@@ -36,6 +37,8 @@ export function messageFor(n: Notification): string {
       return `${n.actor} accepted your suggestion for ${run}. You're going!`;
     case "SUGGESTION_REJECTED":
       return `${n.actor} declined your suggestion for ${run}.`;
+    case "RUN_INVITED":
+      return `${n.actor} invited you to ${run}.`;
     default:
       return `${n.actor} changed ${run}.`;
   }
@@ -59,13 +62,20 @@ export function createNotifications(post: (path: string, body?: object) => Promi
   const items = ref<Notification[]>([]);
   const error = ref("");
   const unread = computed(() => items.value.filter((n) => !n.read).length);
+  /**
+   * Counts loads and marks. A load still in flight when something is marked read answers from before the
+   * mark, so its answer is dropped rather than bringing back an unread badge.
+   */
+  let version = 0;
 
   async function load() {
+    const mine = ++version;
     try {
       const response = await post("/api/notifications/list");
       const data = await response.json();
       if (!response.ok || data.error)
         throw new Error(data.error ?? "Could not load notifications.");
+      if (mine !== version) return;
       items.value = data.notifications.notifications;
       error.value = "";
     } catch {
@@ -76,6 +86,7 @@ export function createNotifications(post: (path: string, body?: object) => Promi
   async function markRead(notification: string) {
     const item = items.value.find((n) => n.notification === notification);
     if (!item || item.read) return;
+    version++;
     item.read = true;
     const response = await post("/api/notifications/read", { notification }).catch(() => null);
     if (!response?.ok) item.read = false;
@@ -83,6 +94,7 @@ export function createNotifications(post: (path: string, body?: object) => Promi
 
   async function markAllRead() {
     const unreadItems = items.value.filter((n) => !n.read);
+    version++;
     for (const item of unreadItems) item.read = true;
     const response = await post("/api/notifications/read-all").catch(() => null);
     if (!response?.ok) for (const item of unreadItems) item.read = false;

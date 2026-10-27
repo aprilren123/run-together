@@ -6,6 +6,7 @@ import changeSuggestingSpec from "@design/concepts/ChangeSuggesting.md" with { t
 import friendingSpec from "@design/concepts/Friending.md" with { type: "text" };
 import notifyingSpec from "@design/concepts/Notifying.md" with { type: "text" };
 import commentingSpec from "@design/concepts/Commenting.md" with { type: "text" };
+import invitingSpec from "@design/concepts/Inviting.md" with { type: "text" };
 
 import {
   InvalidRun,
@@ -41,6 +42,13 @@ import {
   DuplicateComment,
   InvalidComment,
 } from "./concepts/Commenting.ts";
+import {
+  AlreadyInvited,
+  CannotAccept as CannotAcceptInvitation,
+  CannotDecline,
+  CannotInviteSelf,
+  InvitingConcept,
+} from "./concepts/Inviting.ts";
 import { readRunChange } from "./runChange.ts";
 
 import { registering } from "./concepts/Registering/registry.ts";
@@ -109,6 +117,17 @@ const commenting = registerConcept({
   },
 });
 
+const inviting = registerConcept({
+  class: InvitingConcept,
+  spec: invitingSpec,
+  refusals: {
+    CANNOT_INVITE_SELF: CannotInviteSelf,
+    ALREADY_INVITED: AlreadyInvited,
+    CANNOT_ACCEPT: CannotAcceptInvitation,
+    CANNOT_DECLINE: CannotDecline,
+  },
+});
+
 export const applicationConceptSet = conceptSet(
   {
     RunPlanning: runPlanning,
@@ -117,6 +136,7 @@ export const applicationConceptSet = conceptSet(
     Friending: friending,
     Notifying: notifying,
     Commenting: commenting,
+    Inviting: inviting,
 
     Registering: registering,
     Authenticating: authenticating,

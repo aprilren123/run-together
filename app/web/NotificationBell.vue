@@ -1,24 +1,37 @@
 <script setup lang="ts">
-import { Bell, BellOff } from "lucide-vue-next";
+import { Bell, BellOff, ChevronRight } from "lucide-vue-next";
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import { STATE_LABEL, invitationFor, invitationState, type Invitations } from "./invitations.ts";
 import { ago, messageFor, type Notification, type Notifications } from "./notifications.ts";
+import { formatRunDate, formatRunTime, runTitle } from "./runs.ts";
 
-/** The bell in each page's header: an unread count, and a list that opens the run each one is about. */
-const props = defineProps<{ notifications: Notifications }>();
-const emit = defineEmits<{ open: [run: string] }>();
+/**
+ * The bell in each page's header: an unread count, and a list that opens the run each one is about. An
+ * invitation is a card with the run's details that can be accepted or declined right there; opening or
+ * reading it never answers it.
+ */
+const props = defineProps<{ notifications: Notifications; invitations: Invitations }>();
+const emit = defineEmits<{ open: [run: string]; answered: [] }>();
 const open = ref(false);
 const root = ref<HTMLElement | null>(null);
 const button = ref<HTMLButtonElement | null>(null);
 
 async function toggle() {
   open.value = !open.value;
-  if (open.value) await props.notifications.load();
+  if (open.value) await Promise.all([props.notifications.load(), props.invitations.load()]);
 }
 
 async function choose(n: Notification) {
   await props.notifications.markRead(n.notification);
   open.value = false;
   emit("open", n.run);
+}
+
+/** Answering also marks the notification read, since it no longer needs attention. */
+async function answer(n: Notification, invitation: string, how: "accept" | "decline") {
+  void props.notifications.markRead(n.notification);
+  const done = await props.invitations[how](invitation);
+  if (done) emit("answered");
 }
 
 function closeOutside(event: MouseEvent) {
@@ -77,7 +90,85 @@ onBeforeUnmount(() => {
       </div>
       <ul v-else class="bell-list">
         <li v-for="n in notifications.items.value" :key="n.notification">
+          <!-- An invitation: who, the run, and its answer or the buttons to give one -->
+          <template v-if="n.kind === 'RUN_INVITED'">
+            <article
+              v-for="inv in [invitationFor(n, invitations.items.value)]"
+              :key="n.notification"
+              class="bell-invite"
+              :class="{ unread: !n.read }"
+              data-kind="RUN_INVITED"
+              :data-invitation="inv?.invitation"
+              :aria-labelledby="`invite-${n.notification}`"
+            >
+              <span class="bell-dot" :aria-label="n.read ? undefined : 'Unread'"></span>
+              <div class="bell-invite-body">
+                <p :id="`invite-${n.notification}`" class="bell-invite-title">
+                  <strong>{{ n.actor }}</strong> invited you to a run
+                </p>
+                <template v-if="inv">
+                  <p class="bell-invite-run">{{ runTitle(inv.startTime) }}</p>
+                  <ul class="bell-invite-facts">
+                    <li>{{ formatRunDate(inv.startTime) }}, {{ formatRunTime(inv.startTime) }}</li>
+                    <li>{{ inv.location }}</li>
+                    <li>{{ inv.distance }} miles · {{ inv.pace }} min/mi</li>
+                  </ul>
+                  <div v-if="invitationState(inv) === 'open'" class="bell-invite-actions">
+                    <button
+                      type="button"
+                      class="create-run-button"
+                      :disabled="invitations.answering.value !== null"
+                      :aria-busy="invitations.answering.value === inv.invitation"
+                      @click="answer(n, inv.invitation, 'accept')"
+                    >
+                      {{
+                        invitations.answering.value === inv.invitation
+                          ? "Joining…"
+                          : "Accept & Join"
+                      }}
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary-button"
+                      :disabled="invitations.answering.value !== null"
+                      @click="answer(n, inv.invitation, 'decline')"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                  <p
+                    v-else
+                    class="invite-state"
+                    :class="`invite-state-${invitationState(inv)}`"
+                    role="status"
+                  >
+                    {{ STATE_LABEL[invitationState(inv) as keyof typeof STATE_LABEL] }}
+                  </p>
+                  <p
+                    v-if="invitations.feedback.value?.invitation === inv.invitation"
+                    :class="invitations.feedback.value.error ? 'form-error' : 'invite-feedback'"
+                    :role="invitations.feedback.value.error ? 'alert' : 'status'"
+                  >
+                    {{ invitations.feedback.value.text }}
+                  </p>
+                </template>
+                <p v-else class="muted-text invite-gone">This invitation is no longer available.</p>
+                <div class="bell-invite-footer">
+                  <button
+                    v-if="inv"
+                    type="button"
+                    class="text-button invite-view"
+                    @click="choose(n)"
+                  >
+                    View run details <ChevronRight :size="15" aria-hidden="true" />
+                  </button>
+                  <span class="bell-time">{{ ago(n.at) }}</span>
+                </div>
+              </div>
+            </article>
+          </template>
           <button
+            v-else
             type="button"
             class="bell-item"
             :class="{ unread: !n.read }"

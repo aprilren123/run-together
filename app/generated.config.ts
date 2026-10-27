@@ -15,6 +15,7 @@ export default {
       new URL("./design/compositions/RunTogether.md", import.meta.url),
       new URL("./design/compositions/Notifications.md", import.meta.url),
       new URL("./design/compositions/Comments.md", import.meta.url),
+      new URL("./design/compositions/Invitations.md", import.meta.url),
     ],
   },
 };

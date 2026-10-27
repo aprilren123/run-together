@@ -292,4 +292,20 @@ describe("RunPlanning", () => {
       RunCanceled,
     );
   });
+
+  test("_upcoming says whether a run starts now or later, canceled or not, and nothing for an unknown run", async () => {
+    let now = new Date("2026-11-07T09:00");
+    const planning = new RunPlanningConcept(await testDatabase(), () => now);
+    const { run } = await planning.create(RUN);
+    expect(await planning._upcoming({ run })).toEqual([{ upcoming: true }]);
+    now = new Date("2026-11-07T10:00");
+    expect(await planning._upcoming({ run })).toEqual([{ upcoming: true }]);
+    now = new Date("2026-11-07T10:01");
+    expect(await planning._upcoming({ run })).toEqual([{ upcoming: false }]);
+
+    now = new Date("2026-11-07T09:00");
+    await planning.cancel({ owner: "morgan", run });
+    expect(await planning._upcoming({ run })).toEqual([{ upcoming: true }]);
+    expect(await planning._upcoming({ run: "missing" })).toEqual([]);
+  });
 });
