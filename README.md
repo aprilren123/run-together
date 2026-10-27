@@ -28,7 +28,7 @@ A social running app that makes it easier for friends to turn the runs they are 
 ### P4
 
 - [Design Document](p4/design-document.md)
-- [Final Video]()
+- [Final Demo Recording](https://youtu.be/GFaRCwyRpzY)
 
 ## Testing
 
