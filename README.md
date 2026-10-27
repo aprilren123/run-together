@@ -25,6 +25,11 @@ A social running app that makes it easier for friends to turn the runs they are 
 - [Automated Test Results](p3/test-results.txt)
 - [Updated Screen Recording](https://youtu.be/-aXSI0hk5QA)
 
+### P4
+
+- [Design Document](p4/design-document.md)
+- [Final Video]()
+
 ## Testing
 
 RunTogether's automated tests use Bun's test framework: concept tests, HTTP integration tests, and frontend unit tests, all checked with `expect` assertions. Separate scripts drive the app in Chrome. The latest run is saved in [`p3/test-results.txt`](p3/test-results.txt).
