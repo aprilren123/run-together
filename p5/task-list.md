@@ -1,0 +1,11 @@
+# User Testing Task List
+
+| Task | Instructions for Participant | Rationale |
+|---|---|---|
+| **1. Find and join a run** | You want to go on a run with friends this weekend. Find an upcoming run of approximately 5 miles at a comfortable pace and join it. | Tests whether users can discover relevant runs, interpret the information on run cards, and understand how to join. |
+| **2. Find your upcoming plans** | You've made plans to run with someone. Find the runs you're currently signed up for and check the details of the run you just joined. | Tests whether the distinction between Home and My Runs is intuitive and whether users understand what happens after joining. |
+| **3. Create a flexible run** | You want to organize a 4 mile run next Saturday at 9 AM, meeting at the Charles River Esplanade. You can start up to an hour later if needed. Share this plan with your friends. | Tests whether users understand the run creation form and the difference between a preferred time and a flexible time range. |
+| **4. Invite a friend** | You especially want Morgan to come on the run you just planned. Make sure Morgan receives an invitation. | Tests whether users can discover the invitation feature and distinguish inviting someone from having them already committed to the run. |
+| **5. Respond to a proposed change** | A friend has suggested moving the start time of one of your other upcoming runs. Find the suggestion and accept it. Check that the run's details have changed. | Tests how users discover pending suggestions, understand the proposed change, and evaluate whether accepting it successfully updates the shared plan. |
+| **6. Leave a run** | You can no longer attend the run you joined earlier. Update your plans so you're no longer participating. | Tests whether users understand how to manage their commitments and whether leaving a run produces clear feedback. |
+| **7. Cancel a run** | You can no longer host the run you created earlier. Cancel it, then check whether you can still find the canceled plan. | Tests whether cancellation is discoverable, whether confirmation is understandable, and whether users understand that canceled runs are preserved rather than deleted. |
