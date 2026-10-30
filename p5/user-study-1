@@ -4,91 +4,84 @@
 
 ### Task 1: Find and Join a Run
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** N/A
+- **Intervention required:** None
 
 ### Task 2: Find Upcoming Plans
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant navigated between Home and My Runs smoothly and was able to find her upcoming plans without hesitation.
+- **Intervention required:** None
 
 ### Task 3: Create a Flexible Run
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed with difficulty
+- **Hesitations, confusion, or mistakes:** The participant initially hesitated when interpreting the instruction that she could start the run up to one hour later than planned. She also had some difficulty understanding that the flexibility fields were optional and independent of one another. For example, she was unsure whether she needed to specify a distance range even though she only wanted to allow changes to the start time. Despite this confusion, she was able to complete the task independently.
+- **Intervention required:** None
 
 ### Task 4: Invite a Friend
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed with difficulty
+- **Hesitations, confusion, or mistakes:** The participant initially navigated to the Friends page to look for a way to invite someone to her run. After not finding the option there, she returned to the run details and successfully located the invitation feature on her second attempt.
+- **Intervention required:** None
 
 ### Task 5: Respond to a Proposed Change
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Participant quotes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** N/A
+- **Intervention required:** None 
 
 ### Task 6: Leave a Run
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** N/A
+- **Intervention required:** None
 
 ### Task 7: Cancel a Run
 
-- **Outcome:**
-- **Time taken:**
-- **Actions and navigation path:**
-- **Hesitations, confusion, or mistakes:**
-- **Positive observations:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** N/A
+- **Intervention required:** None 
 
 ## Debrief
 
-1. What was your overall impression of RunTogether?
-   - **Response:**
+### 1. What was your overall impression of RunTogether?
 
-2. What felt easiest or most intuitive?
-   - **Response:**
+The participant thought RunTogether was easy to use and useful for people who want to run with friends. She liked that it provided an organized way to plan runs together and felt that running with others could help people stay motivated and maintain a consistent running routine.
 
-3. What was most confusing or frustrating?
-   - **Response:**
+### 2. What felt easiest or most intuitive?
 
-4. Did you understand how flexible runs and change suggestions worked?
-   - **Response:**
+She identified inviting a friend to a run as one of the easiest interactions, despite initially looking for the invitation feature on the Friends page.
 
-5. Was the difference between joining, inviting, and commenting clear?
-   - **Response:**
+### 3. What was most confusing or frustrating?
 
-6. Were there any moments when you expected something different to happen?
-   - **Response:**
+The flexible planning feature was the most confusing part of the app, particularly the process of specifying which run details could be adjusted.
 
-7. Would you use this app to organize runs with friends? Why or why not?
-   - **Response:**
+### 4. Did you understand how flexible runs and change suggestions worked?
 
-8. If you could change one thing, what would it be?
-   - **Response:**
+She understood the overall idea behind flexible runs and change suggestions, but felt that configuring flexibility required more effort than the other features. She described the process as somewhat bothersome because it was less straightforward.
 
+### 5. Was the difference between joining and inviting clear?
+
+Yes. She understood the distinction between joining an existing run herself and inviting another person to participate.
+
+### 6. Were there any moments when you expected something different to happen?
+
+She did not recall any significant instances where the app behaved differently from what she expected.
+
+### 7. Would you use this app to organize runs with friends? Why or why not?
+
+She said she would consider using RunTogether if she were someone who regularly went running, since she could see the value in coordinating runs with friends.
+
+### 8. If you could change one thing, what would it be?
+
+She suggested expanding the app beyond organizing runs with existing friends. In particular, she wanted Google Calendar integration so upcoming runs could fit into her schedule and help her stay consistent. She also raised the question of how someone without friends who run could use the app, suggesting that a feature for discovering and connecting with other runners could make it more useful.
+
+## Overall Observations
+
+The participant was generally able to complete the main tasks independently and found the app's navigation intuitive. She had little difficulty finding her upcoming runs, responding to suggestions, or managing her participation.
+
+The two main usability issues were the complexity of flexible planning and the discoverability of invitations. Although she eventually completed both tasks without assistance, her initial hesitation suggests that these interactions could be made clearer.
+
+Her feedback also highlighted a potential limitation in the app's scope: RunTogether works well for people who already have running friends, but may be less useful for people who want to find new running partners. Calendar integration could also help bridge the gap between planning a run and remembering to attend it.

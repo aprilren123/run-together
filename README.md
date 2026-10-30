@@ -34,8 +34,6 @@ A social running app that makes it easier for friends to turn the runs they are 
 
 - [Task List](p5/task-list.md)
 - [Study Reports](p5/study-reports.md)
-- [User Study 1 Notes](p5/user-study-1)
-- [User Study 2 Notes](p5/user-study-2)
 - [Design Flaws and Opportunities](p5/flaws-opportunities.md)
 - [Personal Reflection](p5/personal-reflection.md)
 
