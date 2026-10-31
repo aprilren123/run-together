@@ -34,16 +34,26 @@
 ## User Study 2
 
 ### What worked well
--
+- The participant completed all seven tasks without assistance and found the app easy to navigate.
+- They liked the clean UI and simple color scheme.
+- They understood the difference between joining and inviting, as well as how flexible planning worked.
 
 ### Main difficulties
--
+- The participant found the run creation form somewhat overwhelming because it asked for several details, including time, location, and pace.
+- They were unsure whether entering a pace was required.
+- They initially had trouble finding the calendar button and thought they might need to enter the date manually.
 
 ### Unexpected behaviors
--
+- The participant initially overlooked the date picker, even though a calendar control was available.
+- Unlike the first participant, they understood flexible planning but struggled more with the general run creation form.
 
 ### Possible explanations
--
+- The form does not clearly distinguish between required and optional fields, making users unsure what information they need to provide.
+- The calendar icon may not be visually prominent enough, causing users to overlook it.
+- Having several input fields together may make creating a run feel more complicated than the other interactions, even when users understand what each field means.
 
 ### Design issues to investigate
--
+- Make required and optional fields more clearly distinguishable.
+- Improve the visibility of the date picker so users can easily recognize how to select a date.
+- Simplify or better organize the run creation form to reduce the amount of information users need to process at once.
+- Consider adding profile pictures, as the participant suggested, to make the app feel more personal and help users recognize their friends.

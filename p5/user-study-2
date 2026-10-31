@@ -2,83 +2,78 @@
 
 ## Task Observations
 
-# User Testing Task List
-
-| Task | Instructions for Participant | Rationale |
-|---|---|---|
-| **1. Find and join a run** | You want to go on a run with friends this weekend. Find an upcoming run of approximately 5 miles at a comfortable pace and join it. | Tests whether users can discover relevant runs, interpret the information on run cards, and understand how to join. |
-| **2. Find your upcoming plans** | You've made plans to run with someone. Find the runs you're currently signed up for and check the details of the run you just joined. | Tests whether the distinction between Home and My Runs is intuitive and whether users understand what happens after joining. |
-| **3. Create a flexible run** | You want to organize a 4 mile run next Saturday at 9 AM, meeting at the Charles River Esplanade. You can start up to an hour later if needed. Share this plan with your friends. | Tests whether users understand the run creation form and the difference between a preferred time and a flexible time range. |
-| **4. Invite a friend** | You especially want Morgan to come on the run you just planned. Make sure Morgan receives an invitation. | Tests whether users can discover the invitation feature and distinguish inviting someone from having them already committed to the run. |
-| **5. Respond to a proposed change** | A friend has suggested moving the start time of one of your other upcoming runs. Find the suggestion and accept it. Check that the run's details have changed. | Tests how users discover pending suggestions, understand the proposed change, and evaluate whether accepting it successfully updates the shared plan. |
-| **6. Leave a run** | You can no longer attend the run you joined earlier. Update your plans so you're no longer participating. | Tests whether users understand how to manage their commitments and whether leaving a run produces clear feedback. |
-| **7. Cancel a run** | You can no longer host the run you created earlier. Cancel it, then check whether you can still find the canceled plan. | Tests whether cancellation is discoverable, whether confirmation is understandable, and whether users understand that canceled runs are preserved rather than deleted. |
-
 ### Task 1: Find and Join a Run
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant successfully found a suitable run and joined it without any noticeable hesitation or confusion.
+- **Intervention required:** None.
 
 ### Task 2: Find Upcoming Plans
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant navigated to their upcoming runs and found the run they had just joined without difficulty.
+- **Intervention required:** None.
 
 ### Task 3: Create a Flexible Run
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed with difficulty
+- **Hesitations, confusion, or mistakes:** The participant was initially unsure whether entering a pace was required. They also had difficulty locating the calendar button for selecting a date and thought they might need to enter the date manually. Despite these issues, they were able to complete the task without assistance.
+- **Intervention required:** None.
 
 ### Task 4: Invite a Friend
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant successfully invited a friend to their run without any noticeable difficulty.
+- **Intervention required:** None.
 
 ### Task 5: Respond to a Proposed Change
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant successfully found and accepted the proposed change without confusion.
+- **Intervention required:** None.
 
 ### Task 6: Leave a Run
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant successfully left the run they had joined earlier without difficulty.
+- **Intervention required:** None.
 
 ### Task 7: Cancel a Run
 
-- **Outcome:** Completed / Completed with difficulty / Needed help / Not completed
-- **Hesitations, confusion, or mistakes:**
-- **Intervention required:**
+- **Outcome:** Completed
+- **Hesitations, confusion, or mistakes:** The participant canceled their run and located it afterward without difficulty.
+- **Intervention required:** None.
 
 ## Debrief
 
-1. What was your overall impression of RunTogether?
-   - **Response:**
+### 1. What was your overall impression of RunTogether?
 
-2. What felt easiest or most intuitive?
-   - **Response:**
+The participant had a positive impression of RunTogether and said they would use it. They liked the clean interface, simple color scheme, and straightforward navigation.
 
-3. What was most confusing or frustrating?
-   - **Response:**
+### 2. What felt easiest or most intuitive?
 
-4. Did you understand how flexible runs and change suggestions worked?
-   - **Response:**
+They found the main run-management interactions intuitive, particularly hosting, joining, leaving, and canceling runs.
 
-5. Was the difference between joining and inviting clear?
-   - **Response:**
+### 3. What was most confusing or frustrating?
 
-6. Were there any moments when you expected something different to happen?
-   - **Response:**
+Creating a run was the most frustrating part because the form required them to consider several details, including location, time, and pace. They felt there was too much information to enter compared to the other interactions.
 
-7. Would you use this app to organize runs with friends? Why or why not?
-   - **Response:**
+### 4. Did you understand how flexible runs and change suggestions worked?
 
-8. If you could change one thing, what would it be?
-   - **Response:**
+Yes. The participant understood how flexible runs and change suggestions worked.
 
+### 5. Was the difference between joining and inviting clear?
+
+Yes. The participant understood the distinction between joining a run and inviting another user.
+
+### 6. Were there any moments when you expected something different to happen?
+
+No. The participant did not report any unexpected application behavior.
+
+### 7. Would you use this app to organize runs with friends? Why or why not?
+
+Yes. The participant said they would use RunTogether to organize runs with friends.
+
+### 8. If you could change one thing, what would it be?
+
+They suggested adding profile pictures so users could personalize their accounts and more easily recognize their friends.
