@@ -1,0 +1,11 @@
+# Personal Reflection 
+
+One of the biggest things I learned from this project was how important it is to keep the scope manageable. Early on, I considered building an automatic running scheduler, but I realized that handling everyone's availability, running preferences, and recovery constraints would make the project too complicated. I narrowed the idea to a social running app where friends could share runs they already planned to do. This let me focus more on the interactions between users, which I think made the final application much more cohesive.
+
+One of the harder parts was figuring out how to separate the application's functionality into concepts. For example, I initially thought about keeping participants and suggested changes directly within a run, but eventually separated them into `RunPlanning`, `Joining`, and `ChangeSuggesting`. This made the responsibilities clearer, although coordinating changes across concepts introduced its own challenges.
+
+I used Claude Code throughout development, especially for implementing features, refining the frontend, and writing tests. It helped me move much faster, but I also learned that I couldn't assume its output was correct just because the code compiled or the tests passed. I still needed to review its decisions, explain the intended behavior clearly, and verify that different features worked together. I think LLMs are most useful as implementation tools, while the developer remains responsible for the design and correctness of the application.
+
+User testing was also surprisingly useful. Both participants completed all the tasks without assistance, but they still struggled with parts of the run creation form. One found the flexibility settings confusing, while the other wasn't sure which fields were required and overlooked the calendar button. These were things I hadn't noticed because I already knew how the interface was supposed to work. It reminded me that an application can be functional without necessarily being intuitive.
+
+Overall, I'm happy that I was able to turn an initial idea into a working application with multiple interacting concepts. If I did this project again, I would test the interface with unfamiliar users earlier instead of waiting until the end, especially for features like flexible planning that seem straightforward to the person who designed them.

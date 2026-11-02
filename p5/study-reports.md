@@ -2,58 +2,20 @@
 
 ## User Study 1
 
-### What worked well
-- The participant navigated between Home and My Runs without hesitation and understood where to find runs she had joined.
-- She successfully found and accepted a proposed change through the notification bell.
-- She was able to leave a run and cancel a run without assistance. After canceling, she correctly navigated to the Canceled tab to find it.
-- During the debrief, she said the app was easy to use and appreciated having an organized way to coordinate runs with friends.
-- She understood the distinction between joining a run and inviting someone.
+The first participant had an overall positive experience with RunTogether and was able to complete the tasks without assistance. She navigated between Home and My Runs without hesitation, found and accepted a proposed change through notifications, and successfully left and canceled runs. After canceling a run, she also knew to look for it under the Canceled tab. During the debrief, she described the app as easy to use and liked having an organized way to plan runs with friends.
 
-### Main difficulties
-- The participant hesitated when setting up a flexible run, particularly when interpreting the instruction that the start time could be up to one hour later.
-- She was unsure whether she needed to fill out all the flexibility fields, even though only the time window was relevant to her plan.
-- During the debrief, she described flexible planning as the most confusing feature. Although she understood its purpose, she felt it was more complicated than the other interactions.
+The main difficulty was creating a flexible run. She hesitated when setting a time window and was unsure whether she needed to fill out the other flexibility fields, such as distance, even though she only wanted to adjust the start time. This suggests that the form does not clearly communicate which settings are optional. Although she understood the purpose of flexible planning, she felt that it was more complicated than the other features.
 
-### Unexpected behaviors
-- When asked to invite a friend to her run, the participant initially navigated to the Friends page rather than looking for the invitation option on the run itself.
-- She returned to the run and found the invitation feature on her second attempt.
-- This was interesting because she later identified inviting friends as one of the most intuitive features, suggesting that the interaction itself was straightforward once she located it.
+Another interesting moment occurred when she tried to invite a friend. She initially navigated to the Friends page instead of looking within the run details, but found the invitation option on her second attempt. Interestingly, she later described inviting friends as one of the easiest features, suggesting that the action itself was intuitive but its location was not.
 
-### Possible explanations
-- The flexibility form may not clearly communicate that users only need to specify the dimensions they are willing to adjust. The participant seemed to interpret the additional fields as required rather than optional.
-- The invitation feature may not be located where users initially expect it. Since invitations involve friends, the participant first associated the task with the Friends page rather than the run details.
-- The distinction between Home and My Runs appears to match the participant's expectations, since she navigated between them without hesitation.
-
-### Design issues to investigate
-- Make it clearer that flexibility settings are optional and independent of one another.
-- Simplify the flexible planning form or provide a short explanation of how preferred values and allowed ranges work.
-- Make the invitation action easier to discover, potentially by improving its visibility on run details or providing another entry point.
-- Consider future integration with Google Calendar to help users keep track of upcoming runs.
-- Explore ways for users to discover new running partners, since the current design assumes they already have friends who run.
+Overall, the study highlighted opportunities to simplify flexible planning and make invitations easier to discover. She also suggested Google Calendar integration and ways to meet new runners, since the app currently works best for people who already have running friends.
 
 ## User Study 2
 
-### What worked well
-- The participant completed all seven tasks without assistance and found the app easy to navigate.
-- They liked the clean UI and simple color scheme.
-- They understood the difference between joining and inviting, as well as how flexible planning worked.
+The second participant also had a positive experience with RunTogether and completed all seven tasks without assistance. They found the interface clean and easy to navigate, particularly appreciating the simple color scheme. Joining runs, inviting friends, accepting proposed changes, leaving runs, and canceling runs all went smoothly. During the debrief, they said they would use the app and understood the difference between joining and inviting, as well as how flexible planning worked.
 
-### Main difficulties
-- The participant found the run creation form somewhat overwhelming because it asked for several details, including time, location, and pace.
-- They were unsure whether entering a pace was required.
-- They initially had trouble finding the calendar button and thought they might need to enter the date manually.
+The main difficulty was creating a run. The participant felt that the form required too much information, particularly details like location, time, and pace. They were also unsure whether pace was a required field. Another unexpected moment occurred when they overlooked the calendar button and initially thought they needed to enter the date manually. Although they eventually completed the task, these moments suggest that the form could better distinguish required and optional fields and make the date picker more visible.
 
-### Unexpected behaviors
-- The participant initially overlooked the date picker, even though a calendar control was available.
-- Unlike the first participant, they understood flexible planning but struggled more with the general run creation form.
+Unlike the first participant, who struggled with understanding flexibility settings, this participant understood flexible planning but found the overall creation process somewhat overwhelming. This suggests that even when individual features make sense, presenting too many inputs at once can make an interaction feel unnecessarily complicated.
 
-### Possible explanations
-- The form does not clearly distinguish between required and optional fields, making users unsure what information they need to provide.
-- The calendar icon may not be visually prominent enough, causing users to overlook it.
-- Having several input fields together may make creating a run feel more complicated than the other interactions, even when users understand what each field means.
-
-### Design issues to investigate
-- Make required and optional fields more clearly distinguishable.
-- Improve the visibility of the date picker so users can easily recognize how to select a date.
-- Simplify or better organize the run creation form to reduce the amount of information users need to process at once.
-- Consider adding profile pictures, as the participant suggested, to make the app feel more personal and help users recognize their friends.
+Overall, the study showed that the main run-management features were intuitive, while run creation could be simplified. The participant also suggested adding profile pictures to make the app feel more personal and help users recognize their friends.
